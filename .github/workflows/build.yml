@@ -1,0 +1,27 @@
+name: build
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  schedule:
+    - cron: "0 0 * * 0"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_type: [ Debug, Release ]
+        build_profile: [ linux ]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build brainfk
+        id: build
+        run: >
+          BUILD_TYPE=${{matrix.build_type}}
+          ${{github.workspace}}/ci/container.sh
+          /tmp/cc.fyi.brainfk/ci/build.sh
