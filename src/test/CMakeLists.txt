@@ -4,11 +4,12 @@ include(CTest)
 include(Catch)
 
 add_executable(tests
-        tests.cpp
+  tests.cpp
 )
 
 target_link_libraries(tests PRIVATE
-        brainfk-objects
+  Catch2::Catch2WithMain
+  brainfk-objects
 )
 
 catch_discover_tests(tests EXTRA_ARGS "--rng-seed=${PRNG_SEED}")
