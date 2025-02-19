@@ -21,6 +21,12 @@ docker build \
 
 docker volume create "${BUILD_CONAN_VOLUME}" || true
 
+if [ -t 1 ]; then
+  EXTRA_ARGS=(-t)
+else
+  EXTRA_ARGS=()
+fi
+
 exec docker run \
   -i \
   -v "${BUILD_ROOT}:${BUILD_ROOT_IN_CONTAINER}" \
@@ -28,5 +34,6 @@ exec docker run \
   -e CONAN_HOME=/mnt/conan \
   -e "BUILD_ROOT=${BUILD_ROOT_IN_CONTAINER}" \
   -e BUILD_TYPE \
+  "${EXTRA_ARGS[@]}" \
   "$BUILD_IMAGE" \
   "$@"

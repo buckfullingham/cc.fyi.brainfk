@@ -1,5 +1,7 @@
 [requires]
 catch2/3.5.2
+fakeit/2.4.1
+readline/8.2
 
 [generators]
 CMakeDeps
