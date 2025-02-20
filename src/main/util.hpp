@@ -2,6 +2,7 @@
 #define BRAINFK_UTIL_HPP
 
 #include <cstdlib>
+#include <functional>
 #include <memory>
 #include <system_error>
 #include <type_traits>
@@ -24,6 +25,19 @@ auto posix(Api api, Args &&...args) -> std::invoke_result_t<Api, Args...> {
     throw std::system_error(errno, std::system_category());
   return result;
 }
+
+class guard {
+public:
+  explicit guard(std::function<void()> f) : f_(std::move(f)) {}
+
+  guard(const guard &) = delete;
+  guard &operator=(const guard &) = delete;
+
+  ~guard() { f_(); }
+
+private:
+  std::function<void()> f_;
+};
 
 } // namespace brainfk
 

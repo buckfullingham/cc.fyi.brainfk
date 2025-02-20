@@ -4,6 +4,9 @@
 #include "repl.hpp"
 #include "util.hpp"
 
+#include <filesystem>
+#include <fstream>
+#include <random>
 #include <thread>
 #include <vector>
 
@@ -21,11 +24,10 @@ std::string drain(int fd) {
     char buf[1 << 10];
     auto n = TEMP_FAILURE_RETRY(read(fd, buf, sizeof(buf)));
     if (n == -1) {
-      if (errno == EAGAIN) {
+      if (errno == EAGAIN)
         break;
-      } else {
+      else
         throw std::system_error(errno, std::system_category());
-      }
     }
     std::copy(buf, buf + n, std::back_inserter(result));
   }
@@ -51,6 +53,26 @@ FILE *make_file(int fd, const char *mode) {
   if (result == nullptr)
     throw std::system_error(errno, std::system_category());
   return result;
+}
+
+std::tuple<std::filesystem::path, std::fstream>
+make_temp_file(std::mt19937 &prng) {
+  for (int i = 0; i < 10; ++i) {
+    std::uniform_int_distribution<char> dist{'a', 'z'};
+    std::string filename;
+    std::generate_n(std::back_inserter(filename), 10,
+                    [&]() { return dist(prng); });
+
+    auto path = std::filesystem::temp_directory_path() / filename;
+
+    std::fstream f{path, std::ios_base::in | std::ios_base::out |
+                             std::ios_base::trunc | std::ios_base::noreplace};
+
+    if (f.is_open())
+      return {std::move(path), std::move(f)};
+  }
+
+  throw std::runtime_error("can't create temp file");
 }
 
 struct fixture_t {
@@ -79,7 +101,7 @@ struct fixture_t {
 } // namespace
 
 TEST_CASE_METHOD(fixture_t,
-                 "repl_main echoes back its input and exits on quit") {
+                 "repl_main echoes back its input and exits on quit", "[repl]") {
   using namespace std::literals;
   using namespace fakeit;
 
@@ -93,4 +115,27 @@ TEST_CASE_METHOD(fixture_t,
 
   CHECK(drain(stdout_pipe_[0]) == std::string{script} + "\n");
   CHECK(history_ == std::vector<std::string>{script, quit});
+}
+
+TEST_CASE_METHOD(fixture_t, "repl echoes a file provided on the command line", "[repl]") {
+  std::mt19937 prng{Catch::rngSeed()};
+  auto [fpath, fstream] = make_temp_file(prng);
+  brainfk::guard fguard{
+      [&]() {
+        fstream.close();
+        std::filesystem::remove(fpath);
+      }
+  };
+
+  char script[] = "++++++++++[>+>+++>+++++++>++++++++++<<<<-]>>>++.>+++++.<<<.";
+
+  fstream << script << '\n';
+  CHECK(!fstream.fail());
+  fstream.close();
+
+  const char *argv[] = {"repl", fpath.c_str()};
+  brainfk::repl_main(2, argv, mock_.get());
+
+  CHECK(drain(stdout_pipe_[0]) == std::string{script} + "\n");
+  CHECK(history_.empty());
 }
