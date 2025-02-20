@@ -1,6 +1,7 @@
 #include <catch2/catch_all.hpp>
 #include <fakeit.hpp>
 
+#include "brainfk.hpp"
 #include "repl.hpp"
 #include "util.hpp"
 
@@ -138,4 +139,26 @@ TEST_CASE_METHOD(fixture_t, "repl echoes a file provided on the command line", "
 
   CHECK(drain(stdout_pipe_[0]) == std::string{script} + "\n");
   CHECK(history_.empty());
+}
+
+TEST_CASE("vm can execute the cc test script", "[brainfk][vm]") {
+  std::string result;
+
+  brainfk::vm vm([]() -> std::uint8_t { std::abort(); },
+                 [&](std::uint8_t b) -> void { result.push_back(char(b)); });
+
+  std::uint8_t script[] = R"xx(
+    This is a test Brainf*ck script written
+    for Coding Challenges!
+    ++++++++++[>+>+++>+++++++>++++++++++<<<
+    <-]>>>++.>+.+++++++..+++.<<++++++++++++
+    ++.------------.>-----.>.-----------.++
+    +++.+++++.-------.<<.>.>+.-------.+++++
+    ++++++..-------.+++++++++.-------.--.++
+    ++++++++++++. What does it do?
+  )xx";
+
+  vm.execute(script);
+
+  CHECK(result == "Hello, Coding Challenges");
 }
