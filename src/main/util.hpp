@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <functional>
 #include <memory>
+#include <regex>
 #include <system_error>
 #include <type_traits>
 

@@ -11,6 +11,7 @@ public:
   virtual void add_history(const char *) = 0;
   virtual void on_new_line() = 0;
   virtual FILE *outstream() = 0;
+  virtual FILE *instream() = 0;
   virtual ~readline_t() = default;
 };
 
@@ -20,6 +21,7 @@ public:
   void add_history(const char *) override;
   void on_new_line() override;
   FILE *outstream() override;
+  FILE *instream() override;
 };
 
 } // namespace brainfk

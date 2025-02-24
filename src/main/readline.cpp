@@ -16,3 +16,7 @@ void brainfk::default_readline_t::add_history(const char *s) {
 FILE *brainfk::default_readline_t::outstream() {
   return ::rl_outstream ? ::rl_outstream : stdout;
 }
+
+FILE *brainfk::default_readline_t::instream() {
+  return ::rl_instream ? ::rl_instream : stdin;
+}

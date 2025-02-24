@@ -8,7 +8,6 @@
 #include <filesystem>
 #include <fstream>
 #include <random>
-#include <thread>
 #include <vector>
 
 #include <fcntl.h>
@@ -78,9 +77,12 @@ make_temp_file(std::mt19937 &prng) {
 
 struct fixture_t {
   fixture_t()
-      : stdout_pipe_(make_pipe()), outstream_(make_file(stdout_pipe_[1], "w")) {
+      : stdout_pipe_(make_pipe()), stdin_pipe_(make_pipe()),
+        outstream_(make_file(stdout_pipe_[1], "w")),
+        instream_(make_file(stdin_pipe_[0], "r")) {
     using namespace fakeit;
     When(Method(mock_, outstream)).AlwaysReturn(outstream_);
+    When(Method(mock_, instream)).AlwaysReturn(instream_);
     When(Method(mock_, add_history)).AlwaysDo([&](auto line) {
       history_.emplace_back(line);
     });
@@ -88,13 +90,18 @@ struct fixture_t {
   }
 
   ~fixture_t() {
+    fclose(instream_);
     fclose(outstream_);
+    close(stdin_pipe_[0]);
+    close(stdin_pipe_[1]);
     close(stdout_pipe_[0]);
     close(stdout_pipe_[1]);
   }
 
   std::array<int, 2> stdout_pipe_;
+  std::array<int, 2> stdin_pipe_;
   FILE *outstream_;
+  FILE *instream_;
   fakeit::Mock<brainfk::readline_t> mock_;
   std::vector<std::string> history_;
 };
@@ -109,16 +116,18 @@ TEST_CASE_METHOD(fixture_t,
   char script[] = "++++++++++[>+>+++>+++++++>++++++++++<<<<-]>>>++.>+++++.<<<.";
   char quit[] = "quit";
 
-  When(Method(mock_, readline)).Return(strdup(script)).Return(strdup(quit));
+  When(Method(mock_, readline)).Return(strdup(script)).Return(strdup("")).Return(strdup(quit));
 
   const char *argv[] = {"repl"};
   brainfk::repl_main(1, argv, mock_.get());
 
-  CHECK(drain(stdout_pipe_[0]) == std::string{script} + "\n");
+  CHECK(drain(stdout_pipe_[0]) == "Hi\n\n"sv);
   CHECK(history_ == std::vector<std::string>{script, quit});
 }
 
 TEST_CASE_METHOD(fixture_t, "repl echoes a file provided on the command line", "[repl]") {
+  using namespace std::literals;
+
   std::mt19937 prng{Catch::rngSeed()};
   auto [fpath, fstream] = make_temp_file(prng);
   brainfk::guard fguard{
@@ -135,9 +144,9 @@ TEST_CASE_METHOD(fixture_t, "repl echoes a file provided on the command line", "
   fstream.close();
 
   const char *argv[] = {"repl", fpath.c_str()};
-  brainfk::repl_main(2, argv, mock_.get());
+  CHECK(brainfk::repl_main(2, argv, mock_.get()) == EXIT_SUCCESS);
 
-  CHECK(drain(stdout_pipe_[0]) == std::string{script} + "\n");
+  CHECK(drain(stdout_pipe_[0]) == "Hi\n"sv);
   CHECK(history_.empty());
 }
 
@@ -159,6 +168,8 @@ TEST_CASE("vm can execute the cc test script", "[brainfk][vm]") {
   )xx";
 
   vm.execute(script);
-
+  CHECK(result == "Hello, Coding Challenges");
+  result.clear();
+  vm.execute(script);
   CHECK(result == "Hello, Coding Challenges");
 }
