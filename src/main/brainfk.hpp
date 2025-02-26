@@ -10,6 +10,61 @@
 
 namespace brainfk {
 
+enum class op_code_t : std::uint8_t {
+  iadd,
+  dadd,
+  zjmp,
+  njmp,
+  putc,
+  getc,
+};
+
+struct instruction_t {
+  op_code_t op_code;
+  std::int32_t operand;
+};
+
+inline std::vector<instruction_t> compile(std::string_view span) {
+  static const std::regex re{R"xx(>+|<+|\++|-+|[.,[\]])xx"};
+  using it_t = std::cregex_iterator;
+  std::vector<instruction_t> result;
+  std::stack<std::int32_t> stack;
+  for (it_t i{span.begin(), span.end(), re}, e; i != e; ++i) {
+    auto &m = *i;
+    switch (*m[0].first) {
+    case '>':
+      result.emplace_back(op_code_t::iadd, m[0].second - m[0].first);
+      break;
+    case '<':
+      result.emplace_back(op_code_t::iadd, m[0].first - m[0].second);
+      break;
+    case '+':
+      result.emplace_back(op_code_t::dadd, m[0].second - m[0].first);
+      break;
+    case '-':
+      result.emplace_back(op_code_t::dadd, m[0].first - m[0].second);
+      break;
+    case '.':
+      result.emplace_back(op_code_t::putc, 0);
+      break;
+    case ',':
+      result.emplace_back(op_code_t::getc, 0);
+      break;
+    case '[':
+      stack.push(std::int32_t(result.size()));
+      result.emplace_back(op_code_t::zjmp, 0);
+      break;
+    case ']':
+      result[stack.top()].operand = std::int32_t(result.size()) - stack.top();
+      result.emplace_back(op_code_t::njmp,
+                          stack.top() - std::int32_t(result.size()));
+      stack.pop();
+      break;
+    }
+  }
+  return result;
+}
+
 class vm {
   static std::function<std::uint8_t()> default_getc() {
     return []() {
@@ -28,61 +83,6 @@ class vm {
   }
 
 public:
-  enum class op_code_t : std::uint8_t {
-    iadd,
-    dadd,
-    zjmp,
-    njmp,
-    putc,
-    getc,
-  };
-
-  struct instruction_t {
-    op_code_t op_code;
-    std::int32_t operand;
-  };
-
-  std::vector<instruction_t> compile(std::span<const std::uint8_t> span) {
-    std::vector<instruction_t> result;
-    std::stack<std::int32_t> stack;
-    for (auto i = span.begin(), e = span.end(); i != e; ++i) {
-      switch (*i) {
-      case '>':
-        result.emplace_back(op_code_t::iadd, 1);
-        break;
-      case '<':
-        result.emplace_back(op_code_t::iadd, -1);
-        break;
-      case '+':
-        result.emplace_back(op_code_t::dadd, 1);
-        break;
-      case '-':
-        result.emplace_back(op_code_t::dadd, -1);
-        break;
-      case '.':
-        result.emplace_back(op_code_t::putc, 0);
-        break;
-      case ',':
-        result.emplace_back(op_code_t::getc, 0);
-        break;
-      case '[':
-        stack.push(std::int32_t(result.size()));
-        result.emplace_back(op_code_t::zjmp, 0);
-        break;
-      case ']':
-        result[stack.top()].operand = std::int32_t(result.size()) - stack.top();
-        result.emplace_back(op_code_t::njmp,
-                            stack.top() - std::int32_t(result.size()));
-        stack.pop();
-        break;
-      default:
-        break;
-      }
-    }
-    return result;
-  }
-
-public:
   explicit vm(std::function<std::uint8_t()> getc = default_getc(),
               std::function<void(std::uint8_t)> putc = default_putc())
       : getc_{std::move(getc)}, putc_{std::move(putc)}, memory_{},
@@ -93,7 +93,6 @@ public:
 
   void execute(std::span<const instruction_t> program) {
     reset();
-
     for (auto i = program.begin(), e = program.end(); i != e; ++i) {
       switch (i->op_code) {
       case op_code_t::iadd:
@@ -120,9 +119,8 @@ public:
     }
   }
 
-  void execute(std::span<const std::uint8_t> program) {
+  void execute(std::span<const char> program) {
     reset();
-
     for (auto i = program.begin(), e = program.end(); i != e; ++i) {
       switch (*i) {
       case '>':

@@ -42,9 +42,7 @@ int brainfk::repl_main(int argc, const char *argv[], brainfk::readline_t &rl) {
       program += buf;
     }
 
-    auto compiled =
-        vm.compile({reinterpret_cast<const std::uint8_t *>(program.c_str()),
-                    program.size()});
+    auto compiled = brainfk::compile(program);
 
     vm.execute({compiled.begin(), compiled.size()});
 
@@ -65,9 +63,7 @@ int brainfk::repl_main(int argc, const char *argv[], brainfk::readline_t &rl) {
       } else {
         if (program.empty())
           continue;
-        auto compiled =
-            vm.compile({reinterpret_cast<const std::uint8_t *>(program.c_str()),
-                        program.size()});
+        auto compiled = brainfk::compile(program);
         vm.execute({compiled.begin(), compiled.size()});
         ::fputc('\n', outstream);
         ::fflush(outstream);
