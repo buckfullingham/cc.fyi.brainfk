@@ -173,3 +173,29 @@ TEST_CASE("vm can execute the cc test script", "[brainfk][vm]") {
   vm.execute(script);
   CHECK(result == "Hello, Coding Challenges");
 }
+
+TEST_CASE("test compilation", "[brainfk][vm]") {
+  std::string result;
+
+  brainfk::vm vm([]() -> std::uint8_t { std::abort(); },
+                 [&](std::uint8_t b) -> void { result.push_back(char(b)); });
+
+  std::uint8_t script[] = R"xx(
+    This is a test Brainf*ck script written
+    for Coding Challenges!
+    ++++++++++[>+>+++>+++++++>++++++++++<<<
+    <-]>>>++.>+.+++++++..+++.<<++++++++++++
+    ++.------------.>-----.>.-----------.++
+    +++.+++++.-------.<<.>.>+.-------.+++++
+    ++++++..-------.+++++++++.-------.--.++
+    ++++++++++++. What does it do?
+  )xx";
+
+  auto program = vm.compile({script, sizeof(script) - 1});
+
+  vm.execute({program.begin(), program.size()});
+  CHECK(result == "Hello, Coding Challenges");
+  result.clear();
+  vm.execute({program.begin(), program.size()});
+  CHECK(result == "Hello, Coding Challenges");
+}
