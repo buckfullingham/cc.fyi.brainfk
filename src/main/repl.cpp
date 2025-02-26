@@ -19,7 +19,6 @@ int brainfk::repl_main(int argc, const char *argv[], brainfk::readline_t &rl) {
       [&]() -> std::uint8_t { return std::uint8_t(::fgetc(instream)); },
       [&](std::uint8_t c) {
         ::fputc(c, outstream);
-        fflush(outstream);
       }};
 
   std::string program;

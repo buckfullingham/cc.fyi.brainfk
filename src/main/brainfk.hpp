@@ -17,6 +17,7 @@ enum class op_code_t : std::uint8_t {
   njmp,
   putc,
   getc,
+  zero,
 };
 
 struct instruction_t {
@@ -25,41 +26,49 @@ struct instruction_t {
 };
 
 inline std::vector<instruction_t> compile(std::string_view span) {
-  static const std::regex re{R"xx(>+|<+|\++|-+|[.,[\]])xx"};
+  static const std::regex re{
+      R"xx(((?:\[-]>)+)|(\[-])|(>+|<+|\++|-+|[.,[\]]))xx"};
   using it_t = std::cregex_iterator;
   std::vector<instruction_t> result;
   std::stack<std::int32_t> stack;
   for (it_t i{span.begin(), span.end(), re}, e; i != e; ++i) {
     auto &m = *i;
-    switch (*m[0].first) {
-    case '>':
-      result.emplace_back(op_code_t::iadd, m[0].second - m[0].first);
-      break;
-    case '<':
-      result.emplace_back(op_code_t::iadd, m[0].first - m[0].second);
-      break;
-    case '+':
-      result.emplace_back(op_code_t::dadd, m[0].second - m[0].first);
-      break;
-    case '-':
-      result.emplace_back(op_code_t::dadd, m[0].first - m[0].second);
-      break;
-    case '.':
-      result.emplace_back(op_code_t::putc, 0);
-      break;
-    case ',':
-      result.emplace_back(op_code_t::getc, 0);
-      break;
-    case '[':
-      stack.push(std::int32_t(result.size()));
-      result.emplace_back(op_code_t::zjmp, 0);
-      break;
-    case ']':
-      result[stack.top()].operand = std::int32_t(result.size()) - stack.top();
-      result.emplace_back(op_code_t::njmp,
-                          stack.top() - std::int32_t(result.size()));
-      stack.pop();
-      break;
+    if (m[1].matched) {
+      result.emplace_back(op_code_t::zero, (m[1].second - m[1].first) / 4);
+    } else if (m[2].matched) {
+      result.emplace_back(op_code_t::zero, 0);
+    } else {
+      assert(m[3].matched);
+      switch (*m[3].first) {
+      case '>':
+        result.emplace_back(op_code_t::iadd, m[3].second - m[3].first);
+        break;
+      case '<':
+        result.emplace_back(op_code_t::iadd, m[3].first - m[3].second);
+        break;
+      case '+':
+        result.emplace_back(op_code_t::dadd, m[3].second - m[3].first);
+        break;
+      case '-':
+        result.emplace_back(op_code_t::dadd, m[3].first - m[3].second);
+        break;
+      case '.':
+        result.emplace_back(op_code_t::putc, 0);
+        break;
+      case ',':
+        result.emplace_back(op_code_t::getc, 0);
+        break;
+      case '[':
+        stack.push(std::int32_t(result.size()));
+        result.emplace_back(op_code_t::zjmp, 0);
+        break;
+      case ']':
+        result[stack.top()].operand = std::int32_t(result.size()) - stack.top();
+        result.emplace_back(op_code_t::njmp,
+                            stack.top() - std::int32_t(result.size()));
+        stack.pop();
+        break;
+      }
     }
   }
   return result;
@@ -114,6 +123,12 @@ public:
         break;
       case op_code_t::getc:
         *pointer_ = getc_();
+        break;
+      case op_code_t::zero:
+        if (i->operand)
+          pointer_ = std::fill_n(pointer_, i->operand, 0);
+        else
+          *pointer_ = 0;
         break;
       }
     }
