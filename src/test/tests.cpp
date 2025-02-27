@@ -108,15 +108,18 @@ struct fixture_t {
 
 } // namespace
 
-TEST_CASE_METHOD(fixture_t,
-                 "repl_main echoes back its input and exits on quit", "[repl]") {
+TEST_CASE_METHOD(fixture_t, "repl_main executes a script and exits on quit",
+                 "[repl]") {
   using namespace std::literals;
   using namespace fakeit;
 
   char script[] = "++++++++++[>+>+++>+++++++>++++++++++<<<<-]>>>++.>+++++.<<<.";
   char quit[] = "quit";
 
-  When(Method(mock_, readline)).Return(strdup(script)).Return(strdup("")).Return(strdup(quit));
+  When(Method(mock_, readline))
+      .Return(strdup(script))
+      .Return(strdup(""))
+      .Return(strdup(quit));
 
   const char *argv[] = {"repl"};
   brainfk::repl_main(1, argv, mock_.get());
@@ -125,17 +128,16 @@ TEST_CASE_METHOD(fixture_t,
   CHECK(history_ == std::vector<std::string>{script, quit});
 }
 
-TEST_CASE_METHOD(fixture_t, "repl echoes a file provided on the command line", "[repl]") {
+TEST_CASE_METHOD(fixture_t, "repl executes a file provided on the command line",
+                 "[repl]") {
   using namespace std::literals;
 
   std::mt19937 prng{Catch::rngSeed()};
   auto [fpath, fstream] = make_temp_file(prng);
-  brainfk::guard fguard{
-      [&]() {
-        fstream.close();
-        std::filesystem::remove(fpath);
-      }
-  };
+  brainfk::guard fguard{[&]() {
+    fstream.close();
+    std::filesystem::remove(fpath);
+  }};
 
   char script[] = "++++++++++[>+>+++>+++++++>++++++++++<<<<-]>>>++.>+++++.<<<.";
 
@@ -174,7 +176,7 @@ TEST_CASE("vm can execute the cc test script", "[brainfk][vm]") {
   CHECK(result == "Hello, Coding Challenges");
 }
 
-TEST_CASE("test good compilation", "[brainfk][vm][compile]") {
+TEST_CASE("we can compile the cc test script", "[brainfk][vm][compile]") {
   std::string result;
 
   brainfk::vm vm([]() -> std::uint8_t { std::abort(); },
@@ -200,22 +202,16 @@ TEST_CASE("test good compilation", "[brainfk][vm][compile]") {
   CHECK(result == "Hello, Coding Challenges");
 }
 
-TEST_CASE("unmatched left bracket", "[brainfk][vm][compile]") {
+TEST_CASE("exception on unmatched left bracket", "[brainfk][vm][compile]") {
   brainfk::vm vm([]() -> std::uint8_t { std::unreachable(); },
                  [&](std::uint8_t) -> void { std::unreachable(); });
 
-  CHECK_THROWS_AS(
-      brainfk::compile("["),
-      std::runtime_error
-  );
+  CHECK_THROWS_AS(brainfk::compile("["), std::runtime_error);
 }
 
-TEST_CASE("unmatched right bracket", "[brainfk][vm][compile]") {
+TEST_CASE("exception on unmatched right bracket", "[brainfk][vm][compile]") {
   brainfk::vm vm([]() -> std::uint8_t { std::unreachable(); },
                  [&](std::uint8_t) -> void { std::unreachable(); });
 
-  CHECK_THROWS_AS(
-      brainfk::compile("]"),
-      std::runtime_error
-      );
+  CHECK_THROWS_AS(brainfk::compile("]"), std::runtime_error);
 }

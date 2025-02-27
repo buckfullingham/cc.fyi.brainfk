@@ -6,7 +6,9 @@ RUN apt -y update \
     cmake \
     python3-full \
     gdb \
-    g++
+    g++ \
+    gcovr \
+    lcov
 
 RUN python3 -m venv /venv
 ENV PATH=$PATH:/venv/bin

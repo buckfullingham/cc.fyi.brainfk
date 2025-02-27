@@ -152,57 +152,9 @@ public:
     }
   }
 
-  void execute(std::span<const char> program) {
-    reset();
-    for (auto i = program.begin(), e = program.end(); i != e; ++i) {
-      switch (*i) {
-      case '>':
-        ++pointer_;
-        break;
-      case '<':
-        --pointer_;
-        break;
-      case '+':
-        ++deref();
-        break;
-      case '-':
-        --deref();
-        break;
-      case '.':
-        putc_(deref());
-        break;
-      case ',':
-        deref() = getc_();
-        break;
-      case '[':
-        if (deref() == 0) {
-          i = std::find_if(i, e, [count = 0](auto j) mutable {
-            if (j == '[')
-              ++count;
-            if (j == ']')
-              --count;
-            return count == 0;
-          });
-        }
-        break;
-      case ']':
-        if (deref() != 0) {
-          i = std::find_if(std::reverse_iterator(i + 1), program.rend(),
-                           [count = 0](auto j) mutable {
-                             if (j == ']')
-                               ++count;
-                             if (j == '[')
-                               --count;
-                             return count == 0;
-                           })
-                  .base() -
-              1;
-        }
-        break;
-      default:
-        break;
-      }
-    }
+  void execute(std::string_view input) {
+    auto program = compile(input);
+    execute({program.begin(), program.size()});
   }
 
   void reset() {
