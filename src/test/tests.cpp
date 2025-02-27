@@ -174,7 +174,7 @@ TEST_CASE("vm can execute the cc test script", "[brainfk][vm]") {
   CHECK(result == "Hello, Coding Challenges");
 }
 
-TEST_CASE("test compilation", "[brainfk][vm][compile]") {
+TEST_CASE("test good compilation", "[brainfk][vm][compile]") {
   std::string result;
 
   brainfk::vm vm([]() -> std::uint8_t { std::abort(); },
@@ -198,4 +198,24 @@ TEST_CASE("test compilation", "[brainfk][vm][compile]") {
   result.clear();
   vm.execute({program.begin(), program.size()});
   CHECK(result == "Hello, Coding Challenges");
+}
+
+TEST_CASE("unmatched left bracket", "[brainfk][vm][compile]") {
+  brainfk::vm vm([]() -> std::uint8_t { std::unreachable(); },
+                 [&](std::uint8_t) -> void { std::unreachable(); });
+
+  CHECK_THROWS_AS(
+      brainfk::compile("["),
+      std::runtime_error
+  );
+}
+
+TEST_CASE("unmatched right bracket", "[brainfk][vm][compile]") {
+  brainfk::vm vm([]() -> std::uint8_t { std::unreachable(); },
+                 [&](std::uint8_t) -> void { std::unreachable(); });
+
+  CHECK_THROWS_AS(
+      brainfk::compile("]"),
+      std::runtime_error
+      );
 }

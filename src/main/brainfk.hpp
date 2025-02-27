@@ -4,20 +4,22 @@
 #include "util.hpp"
 #include <cassert>
 #include <cstdint>
+#include <format>
 #include <functional>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace brainfk {
 
 enum class op_code_t : std::uint8_t {
-  iadd,
-  dadd,
-  zjmp,
-  njmp,
-  putc,
-  getc,
-  zero,
+  padd, // move pointer by signed offset
+  dadd, // (de|in)crement by signed value
+  zjmp, // jump to a signed offset if zero
+  njmp, // jump to a signed offset if non-zero
+  putc, // output the current byte
+  getc, // input into the current byte
+  zero, // set 1 or more bytes to zero
 };
 
 struct instruction_t {
@@ -30,21 +32,25 @@ inline std::vector<instruction_t> compile(std::string_view span) {
       R"xx(((?:\[-]>)+)|(\[-])|(>+|<+|\++|-+|[.,[\]]))xx"};
   using it_t = std::cregex_iterator;
   std::vector<instruction_t> result;
-  std::stack<std::int32_t> stack;
+  std::stack<std::tuple<std::int32_t, std::uint32_t>> stack;
   for (it_t i{span.begin(), span.end(), re}, e; i != e; ++i) {
     auto &m = *i;
     if (m[1].matched) {
+      // a sequence of [-]> blocks
       result.emplace_back(op_code_t::zero, (m[1].second - m[1].first) / 4);
     } else if (m[2].matched) {
+      // a [-] block
       result.emplace_back(op_code_t::zero, 0);
     } else {
+      // a single instruction
       assert(m[3].matched);
+      const auto input_pos = m[3].first - span.begin();
       switch (*m[3].first) {
       case '>':
-        result.emplace_back(op_code_t::iadd, m[3].second - m[3].first);
+        result.emplace_back(op_code_t::padd, m[3].second - m[3].first);
         break;
       case '<':
-        result.emplace_back(op_code_t::iadd, m[3].first - m[3].second);
+        result.emplace_back(op_code_t::padd, m[3].first - m[3].second);
         break;
       case '+':
         result.emplace_back(op_code_t::dadd, m[3].second - m[3].first);
@@ -59,17 +65,29 @@ inline std::vector<instruction_t> compile(std::string_view span) {
         result.emplace_back(op_code_t::getc, 0);
         break;
       case '[':
-        stack.push(std::int32_t(result.size()));
+        stack.emplace(std::int32_t(result.size()), input_pos);
         result.emplace_back(op_code_t::zjmp, 0);
         break;
       case ']':
-        result[stack.top()].operand = std::int32_t(result.size()) - stack.top();
-        result.emplace_back(op_code_t::njmp,
-                            stack.top() - std::int32_t(result.size()));
+        if (stack.empty()) {
+          throw std::runtime_error{
+              std::format("malformed program: unmatched ']' at {}",
+                          m[3].first - span.begin())};
+        }
+        result[std::get<0>(stack.top())].operand =
+            std::int32_t(result.size()) - std::get<0>(stack.top());
+        result.emplace_back(op_code_t::njmp, std::get<0>(stack.top()) -
+                                                 std::int32_t(result.size()));
         stack.pop();
         break;
+      default:
+        std::unreachable();
       }
     }
+  }
+  if (!stack.empty()) {
+    throw std::runtime_error(std::format(
+        "malformed program: unmatched '[' at {}", std::get<1>(stack.top())));
   }
   return result;
 }
@@ -104,7 +122,7 @@ public:
     reset();
     for (auto i = program.begin(), e = program.end(); i != e; ++i) {
       switch (i->op_code) {
-      case op_code_t::iadd:
+      case op_code_t::padd:
         std::advance(pointer_, i->operand);
         break;
       case op_code_t::dadd:
