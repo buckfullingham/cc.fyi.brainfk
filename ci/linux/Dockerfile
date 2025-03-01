@@ -8,7 +8,10 @@ RUN apt -y update \
     gdb \
     g++ \
     gcovr \
-    lcov
+    lcov \
+    llvm-dev \
+    libzstd-dev \
+    zlib1g-dev
 
 RUN python3 -m venv /venv
 ENV PATH=$PATH:/venv/bin

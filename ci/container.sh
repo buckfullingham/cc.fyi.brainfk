@@ -19,6 +19,7 @@ docker build \
   -f "$BUILD_ROOT/ci/$BUILD_PROFILE/Dockerfile" \
   "$BUILD_ROOT/ci"
 
+# make repeated runs in same docker context faster by reusing conan output
 docker volume create "${BUILD_CONAN_VOLUME}" || true
 
 if [ -t 1 ]; then
