@@ -28,21 +28,30 @@ struct instruction_t {
 };
 
 inline std::vector<instruction_t> compile(std::string_view span) {
+  // this regex has 3 mutually exclusive groups:
+  // 1: a sequence of one or more [-]> blocks (set to zero & advance pointer)
+  // 2: a single [-] block (set to zero)
+  // 3: a sequence of:
+  //      one or more >; or // move pointer right by number of instructions
+  //      one or more <; or // move pointer left by number of instructions
+  //      one or more +; or // increment by the number of instructions
+  //      one or more -; or // decrement by the number of instructions
+  //      one of .,[]
   static const std::regex re{
       R"xx(((?:\[-]>)+)|(\[-])|(>+|<+|\++|-+|[.,[\]]))xx"};
   using it_t = std::cregex_iterator;
   std::vector<instruction_t> result;
+  // the stack contains a 2-tuple of:
+  // 0: the index of a zjmp instruction in result; and
+  // 1: the index of its corresponding [ instruction in the input
   std::stack<std::tuple<std::int32_t, std::uint32_t>> stack;
   for (it_t i{span.begin(), span.end(), re}, e; i != e; ++i) {
     auto &m = *i;
     if (m[1].matched) {
-      // a sequence of [-]> blocks
       result.emplace_back(op_code_t::zero, (m[1].second - m[1].first) / 4);
     } else if (m[2].matched) {
-      // a [-] block
       result.emplace_back(op_code_t::zero, 0);
     } else {
-      // a single instruction
       assert(m[3].matched);
       const auto input_pos = m[3].first - span.begin();
       switch (*m[3].first) {

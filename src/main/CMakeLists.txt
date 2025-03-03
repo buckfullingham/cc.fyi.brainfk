@@ -13,7 +13,7 @@ target_link_libraries(brainfk-objects PUBLIC
         readline::readline
 )
 
-target_include_directories(brainfk-objects PUBLIC
+target_include_directories(brainfk-objects SYSTEM PUBLIC
         ${LLVM_INCLUDE_DIRS}
 )
 
