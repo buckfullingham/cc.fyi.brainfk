@@ -25,3 +25,25 @@ jobs:
           BUILD_TYPE=${{matrix.build_type}}
           ${{github.workspace}}/ci/container.sh
           /tmp/cc.fyi.brainfk/ci/build.sh
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build brainfk with coverage
+        id: build
+        run: >
+          BUILD_TYPE=Debug
+          BUILD_COVERAGE=1
+          ${{github.workspace}}/ci/container.sh
+          /tmp/cc.fyi.brainfk/ci/build.sh
+      - name: Generate coverage xml
+        id: gen-coverage-xml
+        run: >
+          ci/container.sh
+          gcovr --cobertura /tmp/cc.fyi.brainfk/coverage.xml /tmp/cc.fyi.brainfk
+      - name: Generate coverage report
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: coverage.xml

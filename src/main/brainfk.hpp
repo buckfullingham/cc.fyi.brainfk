@@ -172,12 +172,6 @@ public:
   }
 
 private:
-  std::uint8_t &deref() {
-    assert(pointer_ >= memory_.begin());
-    assert(pointer_ < memory_.end());
-    return *pointer_;
-  }
-
   std::function<std::uint8_t()> getc_;
   std::function<void(std::uint8_t)> putc_;
   std::array<std::uint8_t, 30'000ull> memory_;

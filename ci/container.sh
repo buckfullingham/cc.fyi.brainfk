@@ -35,6 +35,7 @@ exec docker run \
   -e CONAN_HOME=/mnt/conan \
   -e "BUILD_ROOT=${BUILD_ROOT_IN_CONTAINER}" \
   -e BUILD_TYPE \
+  -e BUILD_COVERAGE \
   "${EXTRA_ARGS[@]}" \
   "$BUILD_IMAGE" \
   "$@"
