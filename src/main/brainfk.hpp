@@ -171,6 +171,8 @@ public:
     pointer_ = &memory_[0];
   }
 
+  auto &memory() { return memory_; }
+
 private:
   std::function<std::uint8_t()> getc_;
   std::function<void(std::uint8_t)> putc_;

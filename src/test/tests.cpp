@@ -229,3 +229,39 @@ TEST_CASE("input and output", "[brainfk][vm]") {
 
   CHECK(output == "hello.");
 }
+
+TEST_CASE("zero compound instruction", "[brainfk][vm][compile]") {
+  std::string output;
+
+  brainfk::vm vm([]() -> std::uint8_t { std::unreachable(); },
+                 [&](std::uint8_t c) -> void { output.push_back(c); });
+
+  // increment x4; set to 0; increment to 32 (' '); output
+  vm.execute("++++[-]++++++++++++++++++++++++++++++++.");
+
+  CHECK(output == " ");
+}
+
+TEST_CASE("multi zero compound instruction", "[brainfk][vm][compile]") {
+  brainfk::vm vm([]() -> std::uint8_t { std::unreachable(); },
+                 [&](std::uint8_t) -> void { std::unreachable(); });
+
+  vm.execute("+>++>+++");
+  CHECK(vm.memory()[0] == 1);
+  CHECK(vm.memory()[1] == 2);
+  CHECK(vm.memory()[2] == 3);
+  CHECK(vm.memory()[3] == 0);
+  vm.execute("+>++>+++<<[-]>[-]>[-]");
+  CHECK(vm.memory()[0] == 0);
+  CHECK(vm.memory()[1] == 0);
+  CHECK(vm.memory()[2] == 0);
+  CHECK(vm.memory()[3] == 0);
+}
+
+TEST_CASE("zjmp instruction skips a block", "[brainfk][vm][compile]") {
+  brainfk::vm vm([]() -> std::uint8_t { std::unreachable(); },
+                 [&](std::uint8_t) -> void { std::unreachable(); });
+
+  vm.execute("[++>]+");
+  CHECK(vm.memory()[0] == 1);
+}
