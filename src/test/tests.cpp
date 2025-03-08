@@ -215,3 +215,17 @@ TEST_CASE("exception on unmatched right bracket", "[brainfk][vm][compile]") {
 
   CHECK_THROWS_AS(brainfk::compile("]"), std::runtime_error);
 }
+
+TEST_CASE("input and output", "[brainfk][vm]") {
+  std::string input = "hello.";
+  std::string output;
+
+  brainfk::vm vm(
+      [it = input.begin()]() mutable -> std::uint8_t { return *it++; },
+      [&](std::uint8_t c) -> void { output.push_back(c); });
+
+  // echo back every character in input until you reach a '.'
+  vm.execute("+[,.----------------------------------------------]");
+
+  CHECK(output == "hello.");
+}
