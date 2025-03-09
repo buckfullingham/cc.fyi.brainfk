@@ -35,24 +35,8 @@ jobs:
         id: build
         run: >
           BUILD_TYPE=Debug
-          BUILD_COVERAGE=1
-          ci/container.sh
-          /tmp/cc.fyi.brainfk/ci/build.sh
-      - name: Generate coverage xml
-        id: gen-coverage-xml
-        run: >
-          ci/container.sh
-          bash -c \"
-            cd /tmp/cc.fyi.brainfk && gcovr
-              --cobertura coverage.xml
-              --exclude-throw-branches
-              --exclude-unreachable-branches
-              --exclude-directories test
-              --fail-under-line 80
-              --fail-under-branch 70
-              src
-              cmake-build-*
-          \"
+          CMAKE_EXTRA_ARGS=(--DCMAKE_C_FLAGS=--coverage -DCMAKE_CXX_FLAGS=--coverage)
+          cd /tmp/cc.fyi.brainfk/ci && ./build.sh && ./coverage.sh
       - name: Generate coverage report
         uses: irongut/CodeCoverageSummary@v1.3.0
         with:

@@ -34,7 +34,7 @@ exec docker run \
   -v "${BUILD_CONAN_VOLUME}:/mnt/conan" \
   -e CONAN_HOME=/mnt/conan \
   -e "BUILD_ROOT=${BUILD_ROOT_IN_CONTAINER}" \
-  -e BUILD_COVERAGE \
+  -e CMAKE_EXTRA_ARGS \
   -e BUILD_TYPE \
   -e BUILD_PROFILE \
   "${EXTRA_ARGS[@]}" \

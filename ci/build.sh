@@ -20,12 +20,6 @@ CONAN_SETTINGS=(
   -c tools.cmake.cmake_layout:build_folder_vars="['settings.build_type', 'settings.os']"
 )
 
-if [ -n "$BUILD_COVERAGE" ]; then
-  CMAKE_COVERAGE_SETTINGS=(-DCMAKE_CXX_FLAGS=--coverage -DCMAKE_C_FLAGS=--coverage)
-else
-  CMAKE_COVERAGE_SETTINGS=()
-fi
-
 cd "$BUILD_ROOT"
 conan install -of "$BUILD_DIR" --build=missing "${CONAN_SETTINGS[@]}" .
 
@@ -42,7 +36,7 @@ cmake .. \
   -DCMAKE_POLICY_DEFAULT_CMP0091=NEW \
   -DBUILD_PROFILE=$BUILD_PROFILE \
   -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-  "${CMAKE_COVERAGE_SETTINGS[@]}"
+  "${CMAKE_EXTRA_SETTINGS[@]}"
 
 # put dependencies' dll's on LD_LIBRARY_PATH etc
 source conanrun.sh
