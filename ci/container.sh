@@ -2,11 +2,11 @@
 
 set -e
 
-BUILD_ROOT="${BUILD_ROOT:-"$(readlink -f "$(dirname "$0")/..")"}"
-BUILD_PROFILE="${BUILD_PROFILE:-linux}"
-BUILD_CONAN_VOLUME=${CONAN_VOLUME:-conan}
-BUILD_ROOT_IN_CONTAINER=/tmp/"$(basename "$BUILD_ROOT")"
-BUILD_IMAGE="${BUILD_IMAGE:-brainfk-"$BUILD_PROFILE"}"
+export BUILD_ROOT="${BUILD_ROOT:-"$(readlink -f "$(dirname "$0")/..")"}"
+export BUILD_PROFILE="${BUILD_PROFILE:-linux}"
+export BUILD_CONAN_VOLUME=${CONAN_VOLUME:-conan}
+export BUILD_ROOT_IN_CONTAINER=/tmp/"$(basename "$BUILD_ROOT")"
+export BUILD_IMAGE="${BUILD_IMAGE:-brainfk-"$BUILD_PROFILE"}"
 
 test -d "$BUILD_ROOT"
 test -d "$BUILD_ROOT/ci/$BUILD_PROFILE"
@@ -34,7 +34,6 @@ exec docker run \
   -v "${BUILD_CONAN_VOLUME}:/mnt/conan" \
   -e CONAN_HOME=/mnt/conan \
   -e "BUILD_ROOT=${BUILD_ROOT_IN_CONTAINER}" \
-  -e CMAKE_EXTRA_ARGS \
   -e BUILD_TYPE \
   -e BUILD_PROFILE \
   "${EXTRA_ARGS[@]}" \
