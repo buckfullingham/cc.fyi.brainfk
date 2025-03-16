@@ -11,8 +11,9 @@ export BUILD_IMAGE="${BUILD_IMAGE:-brainfk-"$BUILD_PROFILE"}"
 test -d "$BUILD_ROOT"
 test -d "$BUILD_ROOT/ci/$BUILD_PROFILE"
 
-apt update -vy || true
-apt install -vy docker || true
+docker --version || (
+  apt -y update && apt -y install docker
+)
 
 docker build \
   -t "$BUILD_IMAGE" \
