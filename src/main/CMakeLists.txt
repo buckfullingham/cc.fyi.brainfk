@@ -35,17 +35,20 @@ target_link_libraries(ccbf PRIVATE
         brainfk-objects
 )
 
-#add_executable(llvm
-#        llvm.cpp)
-#
-#target_link_libraries(llvm PRIVATE
-#        ${LLVM_LIBS}
-#)
-#
-#target_compile_definitions(llvm PRIVATE
-#        ${LLVM_DEFINITIONS}
-#)
-#
-#target_include_directories(llvm SYSTEM PRIVATE
-#        ${LLVM_INCLUDE_DIRS}
-#)
+add_executable(llvm
+        llvm.cpp)
+
+target_compile_options(llvm PRIVATE
+        -Wno-unused-variable
+)
+target_link_libraries(llvm PRIVATE
+        ${LLVM_LIBS}
+)
+
+target_compile_definitions(llvm PRIVATE
+        ${LLVM_DEFINITIONS}
+)
+
+target_include_directories(llvm SYSTEM PRIVATE
+        ${LLVM_INCLUDE_DIRS}
+)

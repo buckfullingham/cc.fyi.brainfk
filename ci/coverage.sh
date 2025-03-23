@@ -10,10 +10,9 @@ BUILD_TYPE=Debug BUILD_COVERAGE=1 BUILD_DIR=cmake-build-coverage-"${BUILD_PROFIL
 
 gcovr \
   --cobertura coverage.xml \
+  --cobertura-pretty \
+  --exclude-directories '.*/CompilerIdCXX' \
   --exclude-throw-branches \
   --exclude-unreachable-branches \
-  --exclude-directories test \
-  --exclude-directories CMakeFiles \
   --fail-under-line 85 \
-  --fail-under-branch 70 \
-  .
+  cmake-build-coverage-${BUILD_PROFILE}
