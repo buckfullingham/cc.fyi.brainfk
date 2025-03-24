@@ -38,9 +38,6 @@ target_link_libraries(ccbf PRIVATE
 add_executable(llvm
         llvm.cpp)
 
-target_compile_options(llvm PRIVATE
-        -Wno-unused-variable
-)
 target_link_libraries(llvm PRIVATE
         ${LLVM_LIBS}
 )
