@@ -13,7 +13,7 @@ pip3 --version
 cmake --version
 
 mkdir -p $CONAN_HOME/profiles
-mako-render "$BUILD_ROOT/ci/$BUILD_PROFILE/conan.profile.mako" > $CONAN_HOME/profiles/default
+mako-render "$BUILD_ROOT/ci/conan.profile.mako" > $CONAN_HOME/profiles/default
 
 CONAN_SETTINGS=(
   -s build_type="$BUILD_TYPE"
