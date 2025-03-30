@@ -9,10 +9,15 @@ RUN apt -y update \
     g++ \
     gcovr \
     lcov \
-    llvm-dev \
     libzstd-dev \
     zlib1g-dev \
-    valgrind
+    valgrind \
+    lsb-release \
+    wget \
+    software-properties-common \
+    gnupg
+
+RUN bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 
 RUN python3 -m venv /venv
 ENV PATH=$PATH:/venv/bin

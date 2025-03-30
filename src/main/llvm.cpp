@@ -1,115 +1,195 @@
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/IR/DerivedTypes.h>
-#include <llvm/IR/Function.h>
-#include <llvm/IR/IRBuilder.h>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/Type.h>
-#include <llvm/IR/Verifier.h>
+#include "llvm.hpp"
 
+#include <llvm-c/Analysis.h>
+#include <llvm-c/Core.h>
+#include <llvm-c/ExecutionEngine.h>
+#include <llvm-c/Target.h>
+
+#include <array>
+#include <bits/codecvt.h>
+#include <cassert>
 #include <iostream>
-#include <memory>
+#include <optional>
 #include <stack>
 
 namespace {
 
-struct Module : llvm::Module {
-  using llvm::Module::Module;
-  char buf[1 << 10];
+template <typename T> class llvm_ptr {
+public:
+  llvm_ptr() : ref_(), dtor_() {}
+  llvm_ptr(auto (*dtor)(T), T ref) : ref_(ref), dtor_(dtor) {}
+
+  llvm_ptr(const llvm_ptr &) = delete;
+  llvm_ptr &operator=(const llvm_ptr &) = delete;
+  llvm_ptr(llvm_ptr &&) = delete;
+  llvm_ptr &operator=(llvm_ptr &&) = delete;
+
+  [[nodiscard]] const T &get() const { return *ref_; }
+  [[nodiscard]] T &get() { return *ref_; }
+
+  ~llvm_ptr() {
+    if (ref_) {
+      assert(dtor_ != nullptr);
+      dtor_(*ref_);
+    }
+  }
+
+private:
+  std::optional<T> ref_;
+  void (*dtor_)(T);
 };
 
 } // namespace
 
-unsigned char memory[30000];
+void brainfk::llvm::exec(std::string_view program, unsigned char *memory,
+                         void (*bfputc)(unsigned char, void *),
+                         unsigned char (*bfgetc)(void *), void *capture) {
+  LLVMInitializeNativeTarget();
+  LLVMInitializeNativeAsmPrinter();
+  LLVMInitializeNativeAsmParser();
+  LLVMInitializeNativeDisassembler();
+  LLVMLinkInMCJIT();
 
-int main() {
-  auto ctx = std::make_unique<llvm::LLVMContext>();
-  auto module = std::make_unique<Module>("brainfk", *ctx);
+  auto ctx = llvm_ptr(LLVMContextDispose, LLVMContextCreate());
+  auto module = llvm_ptr(LLVMDisposeModule,
+                         LLVMModuleCreateWithNameInContext("", ctx.get()));
 
-  auto void_type = llvm::Type::getVoidTy(*ctx);
-  auto byte_type = llvm::IntegerType::get(*ctx, 8);
-  auto ptr_type = llvm::PointerType::get(byte_type, 0);
-  auto byte_inc = llvm::ConstantInt::get(byte_type, 1);
-  auto byte_dec = llvm::ConstantInt::get(byte_type, -1);
-  auto byte_zero = llvm::ConstantInt::get(byte_type, 0);
+  auto void_type = LLVMVoidTypeInContext(ctx.get());
+  auto byte_type = LLVMInt8TypeInContext(ctx.get());
+  auto ptr_type = LLVMPointerType(byte_type, 0);
+  auto void_ptr_type = LLVMPointerType(void_type, 0);
+  auto byte_0 = LLVMConstInt(byte_type, 0, false);
+  auto byte_1 = LLVMConstInt(byte_type, 1, false);
+  auto byte_minus_1 = LLVMConstInt(byte_type, -1, true);
 
-  auto putc = llvm::Function::Create(
-      llvm::FunctionType::get(void_type, {byte_type}, false),
-      llvm::Function::ExternalLinkage, "brainfk_putc", module.get());
+  std::array putc_param_types{byte_type, void_ptr_type};
+  auto putc_type = LLVMFunctionType(void_type, putc_param_types.begin(),
+                                    putc_param_types.size(), 0);
+  auto putc_ptr_type = LLVMPointerType(putc_type, 0);
 
-  auto getc = llvm::Function::Create(
-      llvm::FunctionType::get(byte_type, {}, false),
-      llvm::Function::ExternalLinkage, "brainfk_getc", module.get());
+  std::array getc_param_types{void_ptr_type};
+  auto getc_type = LLVMFunctionType(byte_type, getc_param_types.begin(),
+                                    getc_param_types.size(), 0);
+  auto getc_ptr_type = LLVMPointerType(getc_type, 0);
 
-  auto main = llvm::Function::Create(
-      llvm::FunctionType::get(void_type, {ptr_type}, false),
-      llvm::Function::ExternalLinkage, "brainfk_main", module.get());
+  std::array main_arg_types{ptr_type, putc_ptr_type, getc_ptr_type,
+                            void_ptr_type};
+  auto main_type = LLVMFunctionType(void_type, main_arg_types.begin(),
+                                    main_arg_types.size(), 0);
+  auto main = LLVMAddFunction(module.get(), "brainfk_main", main_type);
+  LLVMSetLinkage(main, LLVMExternalLinkage);
 
-  std::stack<llvm::BasicBlock *> stack;
-  stack.push(llvm::BasicBlock::Create(*ctx, "", main));
+  auto builder = llvm_ptr(LLVMDisposeBuilder, LLVMCreateBuilder());
 
-  auto builder = std::make_unique<llvm::IRBuilder<>>(stack.top());
+  LLVMPositionBuilderAtEnd(builder.get(),
+                           LLVMAppendBasicBlockInContext(ctx.get(), main, ""));
 
-  // create ptr on the stack assign arg 0 into it
-  auto ptr = builder->CreateAlloca(ptr_type, nullptr, "ptr");
+  const auto ptr = LLVMBuildAlloca(builder.get(), ptr_type, "");
+  const auto putc_ptr = LLVMBuildAlloca(builder.get(), putc_ptr_type, "");
+  const auto getc_ptr = LLVMBuildAlloca(builder.get(), getc_ptr_type, "");
+  const auto capture_ptr = LLVMBuildAlloca(builder.get(), void_ptr_type, "");
 
-  std::string_view program =
-      "++++++++++[>+>+++>+++++++>++++++++++<<<<-]>>>++.>+++++.<<<.";
+  LLVMBuildStore(builder.get(), LLVMGetParam(main, 0), ptr);
+  LLVMBuildStore(builder.get(), LLVMGetParam(main, 1), putc_ptr);
+  LLVMBuildStore(builder.get(), LLVMGetParam(main, 2), getc_ptr);
+  LLVMBuildStore(builder.get(), LLVMGetParam(main, 3), capture_ptr);
 
-  llvm::Value *last = builder->CreateStore(main->getArg(0), ptr);
+  std::stack<LLVMBasicBlockRef> stack;
 
   for (auto instruction : program) {
     switch (instruction) {
     case '+': {
-      last = builder->CreateLoad(byte_type, ptr);
-      last = builder->CreateAdd(last, byte_inc);
-      last = builder->CreateStore(last, ptr, false);
+      auto ref = LLVMBuildLoad2(builder.get(), ptr_type, ptr, "");
+      auto last = LLVMBuildLoad2(builder.get(), byte_type, ref, "");
+      last = LLVMBuildAdd(builder.get(), last, byte_1, "");
+      last = LLVMBuildStore(builder.get(), last, ref);
       break;
     }
     case '-': {
-      last = builder->CreateLoad(byte_type, ptr);
-      last = builder->CreateAdd(last, byte_dec);
-      last = builder->CreateStore(last, ptr, false);
+      auto ref = LLVMBuildLoad2(builder.get(), ptr_type, ptr, "");
+      auto last = LLVMBuildLoad2(builder.get(), byte_type, ref, "");
+      last = LLVMBuildSub(builder.get(), last, byte_1, "");
+      last = LLVMBuildStore(builder.get(), last, ref);
       break;
     }
     case '>': {
-      last = builder->CreateInBoundsGEP(byte_type, ptr, {byte_inc});
-      last = builder->CreateStore(last, ptr);
+      auto last = LLVMBuildLoad2(builder.get(), ptr_type, ptr, "");
+      last = LLVMBuildGEP2(builder.get(), byte_type, last, &byte_1, 1, "");
+      last = LLVMBuildStore(builder.get(), last, ptr);
       break;
     }
     case '<': {
-      last = builder->CreateInBoundsGEP(byte_type, ptr, {byte_dec});
-      last = builder->CreateStore(last, ptr);
+      auto last = LLVMBuildLoad2(builder.get(), ptr_type, ptr, "");
+      last =
+          LLVMBuildGEP2(builder.get(), byte_type, last, &byte_minus_1, 1, "");
+      last = LLVMBuildStore(builder.get(), last, ptr);
       break;
     }
     case '[': {
-      stack.push(llvm::BasicBlock::Create(*ctx, "", main));
-      builder->SetInsertPoint(stack.top());
+      auto head = LLVMAppendBasicBlockInContext(ctx.get(), main, "head");
+      auto body = LLVMAppendBasicBlockInContext(ctx.get(), main, "body");
+      auto tail = LLVMAppendBasicBlockInContext(ctx.get(), main, "tail");
+      auto next = LLVMAppendBasicBlockInContext(ctx.get(), main, "next");
+
+      stack.push(next);
+      stack.push(tail);
+      stack.push(body);
+      stack.push(head);
+
+      LLVMBuildBr(builder.get(), head);
+      LLVMPositionBuilderAtEnd(builder.get(), body);
       break;
     }
     case ']': {
-      auto next = llvm::BasicBlock::Create(*ctx, "", main);
+      auto head = stack.top();
+      stack.pop();
       auto body = stack.top();
       stack.pop();
-      last = builder->CreateLoad(byte_type, ptr);
-      last = builder->CreateCmp(llvm::CmpInst::ICMP_EQ, last, byte_zero);
-      last = builder->CreateCondBr(last, next, body);
-      builder->SetInsertPoint(stack.top());
-      last = builder->CreateLoad(byte_type, ptr);
-      last = builder->CreateCmp(llvm::CmpInst::ICMP_EQ, last, byte_zero);
-      builder->CreateCondBr(last, next, body);
-      stack.top() = next;
-      builder->SetInsertPoint(stack.top());
+      auto tail = stack.top();
+      stack.pop();
+      auto next = stack.top();
+      stack.pop();
+
+      LLVMBuildBr(builder.get(), tail);
+
+      {
+        LLVMPositionBuilderAtEnd(builder.get(), head);
+        auto ref = LLVMBuildLoad2(builder.get(), ptr_type, ptr, "");
+        auto last = LLVMBuildLoad2(builder.get(), byte_type, ref, "");
+        last = LLVMBuildICmp(builder.get(), LLVMIntEQ, last, byte_0, "");
+        last = LLVMBuildCondBr(builder.get(), last, next, body);
+      }
+
+      {
+        LLVMPositionBuilderAtEnd(builder.get(), tail);
+        auto ref = LLVMBuildLoad2(builder.get(), ptr_type, ptr, "");
+        auto last = LLVMBuildLoad2(builder.get(), byte_type, ref, "");
+        last = LLVMBuildICmp(builder.get(), LLVMIntEQ, last, byte_0, "");
+        last = LLVMBuildCondBr(builder.get(), last, next, head);
+      }
+
+      LLVMPositionBuilderAtEnd(builder.get(), next);
       break;
     }
     case '.': {
-      last = builder->CreateLoad(byte_type, ptr);
-      last = builder->CreateCall(putc, {last});
+      auto putc = LLVMBuildLoad2(builder.get(), putc_ptr_type, putc_ptr, "");
+      auto addr = LLVMBuildLoad2(builder.get(), ptr_type, ptr, "");
+      auto arg0 = LLVMBuildLoad2(builder.get(), byte_type, addr, "");
+      auto arg1 = LLVMBuildLoad2(builder.get(), void_ptr_type, capture_ptr, "");
+      std::array<LLVMValueRef, 2> args = {arg0, arg1};
+      LLVMBuildCall2(builder.get(), putc_type, putc, args.begin(), args.size(),
+                     "");
       break;
     }
     case ',': {
-      last = builder->CreateCall(getc, {});
-      last = builder->CreateStore(last, ptr);
+      auto getc = LLVMBuildLoad2(builder.get(), getc_ptr_type, getc_ptr, "");
+      auto capture =
+          LLVMBuildLoad2(builder.get(), void_ptr_type, capture_ptr, "");
+      auto result =
+          LLVMBuildCall2(builder.get(), getc_type, getc, &capture, 1, "");
+      auto last = LLVMBuildLoad2(builder.get(), ptr_type, ptr, "");
+      last = LLVMBuildGEP2(builder.get(), byte_type, last, &byte_0, 1, "");
+      last = LLVMBuildStore(builder.get(), result, last);
       break;
     }
     default:
@@ -117,31 +197,19 @@ int main() {
     }
   }
 
-  stack.pop();
-  assert(stack.empty());
+  LLVMBuildRetVoid(builder.get());
 
-  builder->CreateRetVoid();
+  if (LLVMVerifyFunction(main, LLVMReturnStatusAction))
+    throw std::runtime_error("LLVMVerifyFunction failed");
 
-  if (!llvm::verifyFunction(*main, &llvm::errs()))
-    module->print(llvm::outs(), nullptr);
+  LLVMExecutionEngineRef engine;
+  if (LLVMCreateJITCompilerForModule(&engine, module.get(), 3, nullptr))
+    throw std::runtime_error("LLVMCreateJITCompilerForModule failed");
 
-  std::string errStr;
-  auto executionEngine = llvm::EngineBuilder(std::move(module))
-                             .setErrorStr(&errStr)
-                             .setOptLevel(*llvm::CodeGenOpt::getLevel(3))
-                             .create();
+  auto compiled_function = reinterpret_cast<void (*)(
+      unsigned char *, void (*)(unsigned char, void *),
+      unsigned char (*)(void *), void *)>(
+      LLVMGetFunctionAddress(engine, "brainfk_main"));
 
-  if (!executionEngine) {
-    std::cerr << "Failed to create ExecutionEngine: " << errStr << std::endl;
-    return 1;
-  }
-
-  // Step 9: Get a pointer to the JIT compiled function
-  typedef void (*brainfk_main_t)(unsigned char *);
-  auto f = reinterpret_cast<brainfk_main_t>(
-      executionEngine->getPointerToFunction(main));
-  f(memory);
-
-  // Clean up
-  return 0;
+  compiled_function(memory, bfputc, bfgetc, capture);
 }

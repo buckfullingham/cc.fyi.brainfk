@@ -11,9 +11,20 @@
 #include <vector>
 
 #include <fcntl.h>
+#include <llvm.hpp>
 #include <unistd.h>
 
 namespace {
+
+/**
+ * Heap allocated, zero initialised memory for a script.
+ */
+auto make_memory() {
+  constexpr auto len = 30'000;
+  auto result = std::make_unique<unsigned char[]>(len);
+  std::fill_n(result.get(), len, 0);
+  return result;
+}
 
 /**
  * Drain a file descriptor into a std::string.
@@ -106,6 +117,27 @@ struct fixture_t {
   std::vector<std::string> history_;
 };
 
+struct llvm_fixture_t {
+  void exec(std::string_view program) {
+    brainfk::llvm::exec(
+        program, memory_.get(),
+        [](unsigned char c, void *capture) {
+          auto self = static_cast<llvm_fixture_t *>(capture);
+          self->output_ += c;
+        },
+        [](void *capture) -> unsigned char {
+          auto self = static_cast<llvm_fixture_t *>(capture);
+          unsigned char result = self->input_[0];
+          self->input_ = self->input_.substr(1);
+          return result;
+        },
+        this);
+  }
+
+  std::unique_ptr<unsigned char[]> memory_ = make_memory();
+  std::string input_;
+  std::string output_;
+};
 } // namespace
 
 TEST_CASE_METHOD(fixture_t, "repl_main executes a script and exits on quit",
@@ -264,4 +296,63 @@ TEST_CASE("zjmp instruction skips a block", "[brainfk][vm][compile]") {
 
   vm.execute("[++>]+");
   CHECK(vm.memory()[0] == 1);
+}
+
+TEST_CASE_METHOD(llvm_fixture_t, "llvm +") {
+  exec("+");
+  CHECK(memory_[0] == 1);
+}
+
+TEST_CASE_METHOD(llvm_fixture_t, "llvm -") {
+  exec("-");
+  CHECK(memory_[0] == 255);
+}
+
+TEST_CASE_METHOD(llvm_fixture_t, "llvm >+") {
+  exec(">+");
+  CHECK(memory_[0] == 0);
+  CHECK(memory_[1] == 1);
+}
+
+TEST_CASE_METHOD(llvm_fixture_t, "llvm ><+") {
+  exec("><+");
+  CHECK(memory_[0] == 1);
+  CHECK(memory_[1] == 0);
+}
+
+TEST_CASE_METHOD(llvm_fixture_t, "llvm +[-]>+") {
+  exec("+[-]>+");
+  CHECK(memory_[0] == 0);
+  CHECK(memory_[1] == 1);
+}
+
+TEST_CASE_METHOD(llvm_fixture_t, "llvm .") {
+  exec("+.");
+  CHECK(memory_[0] == 1);
+  REQUIRE(!output_.empty());
+  CHECK(int(output_[0]) == 1);
+}
+
+TEST_CASE_METHOD(llvm_fixture_t, "llvm ,") {
+  input_ = "B";
+  exec(",.");
+  CHECK(memory_[0] == 'B');
+  CHECK(output_[0] == 'B');
+}
+
+TEST_CASE_METHOD(llvm_fixture_t, "llvm Hi") {
+  exec("++++++++++[>+>+++>+++++++>++++++++++<<<<-]>>>++.>+++++.<<<.");
+  CHECK(output_ == "Hi\n");
+}
+
+TEST_CASE_METHOD(llvm_fixture_t, "llvm cc script") {
+  exec(R"xx(This is a test Brainf*ck script written
+    for Coding Challenges!
+    ++++++++++[>+>+++>+++++++>++++++++++<<<
+    <-]>>>++.>+.+++++++..+++.<<++++++++++++
+    ++.------------.>-----.>.-----------.++
+    +++.+++++.-------.<<.>.>+.-------.+++++
+    ++++++..-------.+++++++++.-------.--.++
+    ++++++++++++. What does it do?)xx");
+  CHECK(output_ == "Hello, Coding Challenges");
 }
