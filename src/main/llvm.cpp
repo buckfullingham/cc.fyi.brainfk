@@ -41,9 +41,9 @@ private:
 
 } // namespace
 
-void brainfk::llvm::exec(std::string_view program, unsigned char *memory,
-                         void (*bfputc)(unsigned char, void *),
-                         unsigned char (*bfgetc)(void *), void *capture) {
+void brainfk::llvm::exec(std::string_view program, std::byte *memory,
+                         void (*bfputc)(std::byte, void *),
+                         std::byte (*bfgetc)(void *), void *capture) {
   LLVMInitializeNativeTarget();
   LLVMInitializeNativeAsmPrinter();
   LLVMInitializeNativeAsmParser();
@@ -207,8 +207,7 @@ void brainfk::llvm::exec(std::string_view program, unsigned char *memory,
     throw std::runtime_error("LLVMCreateJITCompilerForModule failed");
 
   auto compiled_function = reinterpret_cast<void (*)(
-      unsigned char *, void (*)(unsigned char, void *),
-      unsigned char (*)(void *), void *)>(
+      std::byte *, void (*)(std::byte, void *), std::byte (*)(void *), void *)>(
       LLVMGetFunctionAddress(engine, "brainfk_main"));
 
   compiled_function(memory, bfputc, bfgetc, capture);

@@ -5,8 +5,8 @@
 
 namespace brainfk::llvm {
 
-void exec(std::string_view program, unsigned char *memory,
-          void (*putc)(unsigned char, void *), unsigned char (*getc)(void *),
+void exec(std::string_view program, std::byte *memory,
+          void (*putc)(std::byte, void *), std::byte (*getc)(void *),
           void *capture);
 
 } // namespace brainfk::llvm

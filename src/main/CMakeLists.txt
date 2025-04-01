@@ -13,7 +13,9 @@ string(STRIP "${llvm_libs_raw}" llvm_libs)
 target_link_libraries(llvm-libs INTERFACE ${llvm_libs})
 
 add_library(brainfk-objects OBJECT
+        handrolled_machine.cpp
         llvm.cpp
+        llvm_machine.cpp
         readline.cpp
         repl.cpp
 )

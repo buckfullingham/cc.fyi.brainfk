@@ -12,6 +12,7 @@
 
 #include <fcntl.h>
 #include <llvm.hpp>
+#include <llvm_machine.hpp>
 #include <unistd.h>
 
 namespace {
@@ -21,8 +22,8 @@ namespace {
  */
 auto make_memory() {
   constexpr auto len = 30'000;
-  auto result = std::make_unique<unsigned char[]>(len);
-  std::fill_n(result.get(), len, 0);
+  auto result = std::make_unique<std::byte[]>(len);
+  std::fill_n(result.get(), len, std::byte(0));
   return result;
 }
 
@@ -119,22 +120,19 @@ struct fixture_t {
 
 struct llvm_fixture_t {
   void exec(std::string_view program) {
-    brainfk::llvm::exec(
-        program, memory_.get(),
-        [](unsigned char c, void *capture) {
-          auto self = static_cast<llvm_fixture_t *>(capture);
-          self->output_ += c;
-        },
-        [](void *capture) -> unsigned char {
-          auto self = static_cast<llvm_fixture_t *>(capture);
-          unsigned char result = self->input_[0];
-          self->input_ = self->input_.substr(1);
-          return result;
-        },
-        this);
+    auto executable = machine_.compile(program);
+    machine_.execute(
+        executable, memory_.get(), [&](std::byte c) { output_ += char(c); },
+        [&]() {
+          assert(!input_.empty());
+          auto result = input_[0];
+          input_ = input_.substr(1);
+          return std::byte(result);
+        });
   }
 
-  std::unique_ptr<unsigned char[]> memory_ = make_memory();
+  brainfk::llvm_machine_t machine_;
+  std::unique_ptr<std::byte[]> memory_ = make_memory();
   std::string input_;
   std::string output_;
 };
@@ -300,35 +298,35 @@ TEST_CASE("zjmp instruction skips a block", "[brainfk][vm][compile]") {
 
 TEST_CASE_METHOD(llvm_fixture_t, "llvm +") {
   exec("+");
-  CHECK(memory_[0] == 1);
+  CHECK(memory_[0] == std::byte(1));
 }
 
 TEST_CASE_METHOD(llvm_fixture_t, "llvm -") {
   exec("-");
-  CHECK(memory_[0] == 255);
+  CHECK(memory_[0] == std::byte(255));
 }
 
 TEST_CASE_METHOD(llvm_fixture_t, "llvm >+") {
   exec(">+");
-  CHECK(memory_[0] == 0);
-  CHECK(memory_[1] == 1);
+  CHECK(memory_[0] == std::byte(0));
+  CHECK(memory_[1] == std::byte(1));
 }
 
 TEST_CASE_METHOD(llvm_fixture_t, "llvm ><+") {
   exec("><+");
-  CHECK(memory_[0] == 1);
-  CHECK(memory_[1] == 0);
+  CHECK(memory_[0] == std::byte(1));
+  CHECK(memory_[1] == std::byte(0));
 }
 
 TEST_CASE_METHOD(llvm_fixture_t, "llvm +[-]>+") {
   exec("+[-]>+");
-  CHECK(memory_[0] == 0);
-  CHECK(memory_[1] == 1);
+  CHECK(memory_[0] == std::byte(0));
+  CHECK(memory_[1] == std::byte(1));
 }
 
 TEST_CASE_METHOD(llvm_fixture_t, "llvm .") {
   exec("+.");
-  CHECK(memory_[0] == 1);
+  CHECK(memory_[0] == std::byte(1));
   REQUIRE(!output_.empty());
   CHECK(int(output_[0]) == 1);
 }
@@ -336,7 +334,7 @@ TEST_CASE_METHOD(llvm_fixture_t, "llvm .") {
 TEST_CASE_METHOD(llvm_fixture_t, "llvm ,") {
   input_ = "B";
   exec(",.");
-  CHECK(memory_[0] == 'B');
+  CHECK(memory_[0] == std::byte('B'));
   CHECK(output_[0] == 'B');
 }
 

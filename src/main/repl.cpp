@@ -1,25 +1,21 @@
 #include "repl.hpp"
 #include "brainfk.hpp"
+#include "llvm_machine.hpp"
 #include "readline.hpp"
 #include "util.hpp"
 
 #include <cassert>
 #include <cstdio>
-#include <iostream>
 #include <memory>
 #include <regex>
 
 int brainfk::repl_main(int argc, const char *argv[], brainfk::readline_t &rl) {
-  static const std::regex quit_re{"quit", std::regex_constants::icase};
+  static const std::regex quit_re{"quit|exit", std::regex_constants::icase};
 
   auto outstream = rl.outstream();
   auto instream = rl.instream();
 
-  brainfk::vm vm{
-      [&]() -> std::uint8_t { return std::uint8_t(::fgetc(instream)); },
-      [&](std::uint8_t c) {
-        ::fputc(c, outstream);
-      }};
+  llvm_machine_t vm;
 
   std::string program;
 
@@ -41,9 +37,14 @@ int brainfk::repl_main(int argc, const char *argv[], brainfk::readline_t &rl) {
       program += buf;
     }
 
-    auto compiled = brainfk::compile(program);
+    auto compiled = vm.compile(program);
 
-    vm.execute({compiled.begin(), compiled.size()});
+    auto memory = std::make_unique<std::byte[]>(30'000);
+
+    vm.execute(
+        compiled, memory.get(),
+        [&](std::byte c) { ::fputc(char(c), outstream); },
+        [&]() -> std::byte { return std::byte(::fgetc(instream)); });
 
     fflush(outstream);
     return EXIT_SUCCESS;
@@ -62,8 +63,12 @@ int brainfk::repl_main(int argc, const char *argv[], brainfk::readline_t &rl) {
       } else {
         if (program.empty())
           continue;
-        auto compiled = brainfk::compile(program);
-        vm.execute({compiled.begin(), compiled.size()});
+        auto compiled = vm.compile(program);
+        auto memory = std::make_unique<std::byte[]>(30'000);
+        vm.execute(
+            compiled, memory.get(),
+            [&](std::byte c) { ::fputc(char(c), outstream); },
+            [&]() -> std::byte { return std::byte(::fgetc(instream)); });
         ::fputc('\n', outstream);
         ::fflush(outstream);
         program.clear();
