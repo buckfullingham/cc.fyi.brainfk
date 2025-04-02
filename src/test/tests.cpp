@@ -18,16 +18,6 @@
 namespace {
 
 /**
- * Heap allocated, zero initialised memory for a script.
- */
-auto make_memory() {
-  constexpr auto len = 30'000;
-  auto result = std::make_unique<std::byte[]>(len);
-  std::fill_n(result.get(), len, std::byte(0));
-  return result;
-}
-
-/**
  * Drain a file descriptor into a std::string.
  */
 std::string drain(int fd) {
@@ -120,7 +110,7 @@ struct fixture_t {
 
 struct llvm_fixture_t {
   void exec(std::string_view program) {
-    auto executable = machine_.compile(program);
+    auto executable = machine_.compile(program, true);
     machine_.execute(
         executable, memory_.get(), [&](std::byte c) { output_ += char(c); },
         [&]() {
@@ -132,7 +122,7 @@ struct llvm_fixture_t {
   }
 
   brainfk::llvm_machine_t machine_;
-  std::unique_ptr<std::byte[]> memory_ = make_memory();
+  std::unique_ptr<std::byte[]> memory_ = std::make_unique<std::byte[]>(30'000);
   std::string input_;
   std::string output_;
 };

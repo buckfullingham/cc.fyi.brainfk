@@ -25,3 +25,21 @@ target_link_libraries(tests PRIVATE
 )
 
 catch_discover_tests(tests EXTRA_ARGS "--rng-seed=${PRNG_SEED}")
+
+add_test(
+        NAME integration_test_handrolled
+        COMMAND
+        sh -c "${CMAKE_BINARY_DIR}/src/main/ccbf -m handrolled ${CMAKE_SOURCE_DIR}/src/test/resources/mandelbrot.bf | diff ${CMAKE_SOURCE_DIR}/src/test/resources/mandelbrot.txt -"
+)
+
+add_test(
+        NAME integration_test_llvm_optimised
+        COMMAND
+        sh -c "${CMAKE_BINARY_DIR}/src/main/ccbf -m llvm -o ${CMAKE_SOURCE_DIR}/src/test/resources/mandelbrot.bf | diff ${CMAKE_SOURCE_DIR}/src/test/resources/mandelbrot.txt -"
+)
+
+add_test(
+        NAME integration_test_llvm_unoptimised
+        COMMAND
+        sh -c "${CMAKE_BINARY_DIR}/src/main/ccbf -m llvm -O ${CMAKE_SOURCE_DIR}/src/test/resources/mandelbrot.bf | diff ${CMAKE_SOURCE_DIR}/src/test/resources/mandelbrot.txt -"
+)

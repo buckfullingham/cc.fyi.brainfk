@@ -19,8 +19,8 @@ class machine_t {
 public:
   using executable_ptr_t = std::unique_ptr<executable_t>;
 
-  executable_ptr_t compile(std::string_view program) {
-    return compile_impl(program);
+  executable_ptr_t compile(std::string_view program, bool optimise) {
+    return compile_impl(program, optimise);
   }
 
   void execute(const executable_ptr_t &executable, std::byte *mem,
@@ -31,7 +31,7 @@ public:
   virtual ~machine_t() = default;
 
 private:
-  virtual executable_ptr_t compile_impl(std::string_view) = 0;
+  virtual executable_ptr_t compile_impl(std::string_view, bool optimise) = 0;
   virtual void execute_impl(const executable_ptr_t &, std::byte *,
                             const putc_t &, const getc_t &) = 0;
 };

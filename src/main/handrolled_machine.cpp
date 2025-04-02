@@ -4,7 +4,6 @@
 #include <cassert>
 #include <cstdint>
 #include <format>
-#include <functional>
 #include <span>
 #include <utility>
 #include <vector>
@@ -27,7 +26,7 @@ struct instruction_t {
 };
 
 struct executable_t : public brainfk::executable_t {
-  explicit executable_t(std::string_view span) {
+  explicit executable_t(std::string_view program, bool) {
     // this regex has 3 mutually exclusive groups:
     // 1: a sequence of one or more [-]> blocks (set to zero & advance pointer)
     // 2: a single [-] block (set to zero)
@@ -44,48 +43,50 @@ struct executable_t : public brainfk::executable_t {
     // 0: the index of a zjmp instruction in result; and
     // 1: the index of its corresponding [ instruction in the input
     std::stack<std::tuple<std::int32_t, std::uint32_t>> stack;
-    for (it_t i{span.begin(), span.end(), re}, e; i != e; ++i) {
+    for (it_t i{program.begin(), program.end(), re}, e; i != e; ++i) {
       auto &m = *i;
       if (m[1].matched) {
-        result.emplace_back(op_code_t::zero, (m[1].second - m[1].first) / 4);
+        instructions_.emplace_back(op_code_t::zero,
+                                   (m[1].second - m[1].first) / 4);
       } else if (m[2].matched) {
-        result.emplace_back(op_code_t::zero, 0);
+        instructions_.emplace_back(op_code_t::zero, 0);
       } else {
         assert(m[3].matched);
-        const auto input_pos = m[3].first - span.begin();
+        const auto input_pos = m[3].first - program.begin();
         switch (*m[3].first) {
         case '>':
-          result.emplace_back(op_code_t::padd, m[3].second - m[3].first);
+          instructions_.emplace_back(op_code_t::padd, m[3].second - m[3].first);
           break;
         case '<':
-          result.emplace_back(op_code_t::padd, m[3].first - m[3].second);
+          instructions_.emplace_back(op_code_t::padd, m[3].first - m[3].second);
           break;
         case '+':
-          result.emplace_back(op_code_t::dadd, m[3].second - m[3].first);
+          instructions_.emplace_back(op_code_t::dadd, m[3].second - m[3].first);
           break;
         case '-':
-          result.emplace_back(op_code_t::dadd, m[3].first - m[3].second);
+          instructions_.emplace_back(op_code_t::dadd, m[3].first - m[3].second);
           break;
         case '.':
-          result.emplace_back(op_code_t::putc, 0);
+          instructions_.emplace_back(op_code_t::putc, 0);
           break;
         case ',':
-          result.emplace_back(op_code_t::getc, 0);
+          instructions_.emplace_back(op_code_t::getc, 0);
           break;
         case '[':
-          stack.emplace(std::int32_t(result.size()), input_pos);
-          result.emplace_back(op_code_t::zjmp, 0);
+          stack.emplace(std::int32_t(instructions_.size()), input_pos);
+          instructions_.emplace_back(op_code_t::zjmp, 0);
           break;
         case ']':
           if (stack.empty()) {
             throw std::runtime_error{
                 std::format("malformed program: unmatched ']' at {}",
-                            m[3].first - span.begin())};
+                            m[3].first - program.begin())};
           }
-          result[std::get<0>(stack.top())].operand =
-              std::int32_t(result.size()) - std::get<0>(stack.top());
-          result.emplace_back(op_code_t::njmp, std::get<0>(stack.top()) -
-                                                   std::int32_t(result.size()));
+          instructions_[std::get<0>(stack.top())].operand =
+              std::int32_t(instructions_.size()) - std::get<0>(stack.top());
+          instructions_.emplace_back(op_code_t::njmp,
+                                     std::get<0>(stack.top()) -
+                                         std::int32_t(instructions_.size()));
           stack.pop();
           break;
         default:
@@ -101,7 +102,7 @@ struct executable_t : public brainfk::executable_t {
 
   void operator()(std::byte *pointer_, const brainfk::putc_t &putc,
                   const brainfk::getc_t &getc) const {
-    for (auto i = result.begin(), e = result.end(); i != e; ++i) {
+    for (auto i = instructions_.begin(), e = instructions_.end(); i != e; ++i) {
       switch (i->op_code) {
       case op_code_t::padd:
         std::advance(pointer_, i->operand);
@@ -133,14 +134,15 @@ struct executable_t : public brainfk::executable_t {
     }
   }
 
-  std::vector<instruction_t> result;
+  std::vector<instruction_t> instructions_;
 };
 
 } // namespace
 
 brainfk::machine_t::executable_ptr_t
-brainfk::handrolled_machine_t::compile_impl(std::string_view program) {
-  return std::make_unique<::executable_t>(program);
+brainfk::handrolled_machine_t::compile_impl(std::string_view program,
+                                            bool optimise) {
+  return std::make_unique<::executable_t>(program, optimise);
 }
 
 void brainfk::handrolled_machine_t::execute_impl(
