@@ -41,7 +41,7 @@ private:
 };
 
 struct executable_t : brainfk::executable_t {
-  explicit executable_t(std::string_view program, bool optimise) {
+  explicit executable_t(std::string_view program) {
     LLVMInitializeNativeTarget();
     LLVMInitializeNativeAsmPrinter();
     LLVMInitializeNativeAsmParser();
@@ -208,8 +208,7 @@ struct executable_t : brainfk::executable_t {
       throw std::runtime_error("LLVMVerifyFunction failed");
 
     LLVMExecutionEngineRef engine;
-    if (LLVMCreateJITCompilerForModule(&engine, module.get(), optimise ? 3 : 0,
-                                       nullptr))
+    if (LLVMCreateJITCompilerForModule(&engine, module.get(), 3, nullptr))
       throw std::runtime_error("LLVMCreateJITCompilerForModule failed");
 
     exe_ = reinterpret_cast<void (*)(std::byte *, void (*)(std::byte, void *),
@@ -242,8 +241,8 @@ struct executable_t : brainfk::executable_t {
 } // namespace
 
 brainfk::machine_t::executable_ptr_t
-brainfk::llvm_machine_t::compile_impl(std::string_view program, bool optimise) {
-  return std::make_unique<::executable_t>(program, optimise);
+brainfk::llvm_machine_t::compile_impl(std::string_view program) {
+  return std::make_unique<::executable_t>(program);
 }
 
 void brainfk::llvm_machine_t::execute_impl(

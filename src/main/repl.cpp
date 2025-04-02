@@ -19,7 +19,6 @@ struct settings_t {
   std::unique_ptr<brainfk::machine_t> machine =
       std::make_unique<brainfk::handrolled_machine_t>();
   std::optional<std::string> script_name{};
-  bool optimise = true;
 };
 
 settings_t parse_cmdline(int argc, const char *argv[]) {
@@ -27,7 +26,7 @@ settings_t parse_cmdline(int argc, const char *argv[]) {
   settings_t result;
 
   int c;
-  while ((c = getopt(argc, const_cast<char **>(argv), ":m:oO")) != -1) {
+  while ((c = getopt(argc, const_cast<char **>(argv), ":m:")) != -1) {
     switch (c) {
     case 'm':
       if (optarg == "llvm"sv) {
@@ -37,12 +36,6 @@ settings_t parse_cmdline(int argc, const char *argv[]) {
       } else {
         throw std::runtime_error("bad machine");
       }
-      break;
-    case 'o':
-      result.optimise = true;
-      break;
-    case 'O':
-      result.optimise = false;
       break;
     case ':':
       printf("-%c without argument\n", optopt);
@@ -91,7 +84,7 @@ int brainfk::repl_main(int argc, const char *argv[], brainfk::readline_t &rl) {
       program += buf;
     }
 
-    auto compiled = vm.compile(program, settings.optimise);
+    auto compiled = vm.compile(program);
 
     auto memory = std::make_unique<std::byte[]>(30'000);
 
@@ -117,7 +110,7 @@ int brainfk::repl_main(int argc, const char *argv[], brainfk::readline_t &rl) {
       } else {
         if (program.empty())
           continue;
-        auto compiled = vm.compile(program, settings.optimise);
+        auto compiled = vm.compile(program);
         auto memory = std::make_unique<std::byte[]>(30'000);
         vm.execute(
             compiled, memory.get(),

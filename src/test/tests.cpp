@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <fcntl.h>
+#include <handrolled_machine.hpp>
 #include <llvm.hpp>
 #include <llvm_machine.hpp>
 #include <unistd.h>
@@ -108,10 +109,10 @@ struct fixture_t {
   std::vector<std::string> history_;
 };
 
-struct llvm_fixture_t {
+struct machine_fixture_t {
   void exec(std::string_view program) {
-    auto executable = machine_.compile(program, true);
-    machine_.execute(
+    auto executable = machine_->compile(program);
+    machine_->execute(
         executable, memory_.get(), [&](std::byte c) { output_ += char(c); },
         [&]() {
           assert(!input_.empty());
@@ -121,11 +122,22 @@ struct llvm_fixture_t {
         });
   }
 
-  brainfk::llvm_machine_t machine_;
+  std::unique_ptr<brainfk::machine_t> machine_;
   std::unique_ptr<std::byte[]> memory_ = std::make_unique<std::byte[]>(30'000);
   std::string input_;
   std::string output_;
 };
+
+struct llvm_fixture_t : machine_fixture_t {
+  llvm_fixture_t() { machine_ = std::make_unique<brainfk::llvm_machine_t>(); }
+};
+
+struct handrolled_fixture_t : machine_fixture_t {
+  handrolled_fixture_t() {
+    machine_ = std::make_unique<brainfk::handrolled_machine_t>();
+  }
+};
+
 } // namespace
 
 TEST_CASE_METHOD(fixture_t, "repl_main executes a script and exits on quit",
@@ -343,4 +355,39 @@ TEST_CASE_METHOD(llvm_fixture_t, "llvm cc script") {
     ++++++..-------.+++++++++.-------.--.++
     ++++++++++++. What does it do?)xx");
   CHECK(output_ == "Hello, Coding Challenges");
+}
+
+TEST_CASE_METHOD(handrolled_fixture_t, "handrolled +") {
+  exec("+");
+  CHECK(memory_[0] == std::byte(1));
+}
+
+TEST_CASE_METHOD(handrolled_fixture_t, "handrolled -") {
+  exec("-");
+  CHECK(memory_[0] == std::byte(255));
+}
+
+TEST_CASE_METHOD(handrolled_fixture_t, "handrolled >+") {
+  exec(">+");
+  CHECK(memory_[0] == std::byte(0));
+  CHECK(memory_[1] == std::byte(1));
+}
+
+TEST_CASE_METHOD(handrolled_fixture_t, "handrolled ><-") {
+  exec("><-");
+  CHECK(memory_[0] == std::byte(255));
+  CHECK(memory_[1] == std::byte(0));
+}
+
+TEST_CASE_METHOD(handrolled_fixture_t, "handrolled ><+") {
+  exec("><+");
+  CHECK(memory_[0] == std::byte(1));
+  CHECK(memory_[1] == std::byte(0));
+}
+
+TEST_CASE_METHOD(handrolled_fixture_t, "handrolled ,.") {
+  input_ = 'B';
+  exec(",.");
+  CHECK(memory_[0] == std::byte('B'));
+  CHECK(output_ == "B");
 }

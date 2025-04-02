@@ -33,13 +33,7 @@ add_test(
 )
 
 add_test(
-        NAME integration_test_llvm_optimised
+        NAME integration_test_llvm
         COMMAND
-        sh -c "${CMAKE_BINARY_DIR}/src/main/ccbf -m llvm -o ${CMAKE_SOURCE_DIR}/src/test/resources/mandelbrot.bf | diff ${CMAKE_SOURCE_DIR}/src/test/resources/mandelbrot.txt -"
-)
-
-add_test(
-        NAME integration_test_llvm_unoptimised
-        COMMAND
-        sh -c "${CMAKE_BINARY_DIR}/src/main/ccbf -m llvm -O ${CMAKE_SOURCE_DIR}/src/test/resources/mandelbrot.bf | diff ${CMAKE_SOURCE_DIR}/src/test/resources/mandelbrot.txt -"
+        sh -c "${CMAKE_BINARY_DIR}/src/main/ccbf -m llvm ${CMAKE_SOURCE_DIR}/src/test/resources/mandelbrot.bf | diff ${CMAKE_SOURCE_DIR}/src/test/resources/mandelbrot.txt -"
 )

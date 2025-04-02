@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdint>
 #include <format>
+#include <ranges>
 #include <span>
 #include <utility>
 #include <vector>
@@ -26,7 +27,7 @@ struct instruction_t {
 };
 
 struct executable_t : public brainfk::executable_t {
-  explicit executable_t(std::string_view program, bool) {
+  explicit executable_t(std::string_view program) {
     // this regex has 3 mutually exclusive groups:
     // 1: a sequence of one or more [-]> blocks (set to zero & advance pointer)
     // 2: a single [-] block (set to zero)
@@ -38,33 +39,46 @@ struct executable_t : public brainfk::executable_t {
     //      one of .,[]
     static const std::regex re{
         R"xx(((?:\[-]>)+)|(\[-])|(>+|<+|\++|-+|[.,[\]]))xx"};
-    using it_t = std::cregex_iterator;
+
+    // filter non-instruction characters from the input
+    auto filtered = program | std::ranges::views::filter([](auto c) {
+                      static constexpr std::string_view bf_alphabet =
+                          "+-<>[],.";
+                      return bf_alphabet.contains(c);
+                    });
+
+    using it_t = std::regex_iterator<decltype(filtered.begin())>;
+
     // the stack contains a 2-tuple of:
     // 0: the index of a zjmp instruction in result; and
     // 1: the index of its corresponding [ instruction in the input
     std::stack<std::tuple<std::int32_t, std::uint32_t>> stack;
-    for (it_t i{program.begin(), program.end(), re}, e; i != e; ++i) {
+    for (it_t i{filtered.begin(), filtered.end(), re}, e; i != e; ++i) {
       auto &m = *i;
       if (m[1].matched) {
         instructions_.emplace_back(op_code_t::zero,
-                                   (m[1].second - m[1].first) / 4);
+                                   std::distance(m[1].first, m[1].second) / 4);
       } else if (m[2].matched) {
         instructions_.emplace_back(op_code_t::zero, 0);
       } else {
         assert(m[3].matched);
-        const auto input_pos = m[3].first - program.begin();
+        const auto input_pos = std::distance(filtered.begin(), m[3].first);
         switch (*m[3].first) {
         case '>':
-          instructions_.emplace_back(op_code_t::padd, m[3].second - m[3].first);
+          instructions_.emplace_back(op_code_t::padd,
+                                     std::distance(m[3].first, m[3].second));
           break;
         case '<':
-          instructions_.emplace_back(op_code_t::padd, m[3].first - m[3].second);
+          instructions_.emplace_back(op_code_t::padd,
+                                     -std::distance(m[3].first, m[3].second));
           break;
         case '+':
-          instructions_.emplace_back(op_code_t::dadd, m[3].second - m[3].first);
+          instructions_.emplace_back(op_code_t::dadd,
+                                     std::distance(m[3].first, m[3].second));
           break;
         case '-':
-          instructions_.emplace_back(op_code_t::dadd, m[3].first - m[3].second);
+          instructions_.emplace_back(op_code_t::dadd,
+                                     -std::distance(m[3].first, m[3].second));
           break;
         case '.':
           instructions_.emplace_back(op_code_t::putc, 0);
@@ -80,7 +94,7 @@ struct executable_t : public brainfk::executable_t {
           if (stack.empty()) {
             throw std::runtime_error{
                 std::format("malformed program: unmatched ']' at {}",
-                            m[3].first - program.begin())};
+                            std::distance(filtered.begin(), m[3].first))};
           }
           instructions_[std::get<0>(stack.top())].operand =
               std::int32_t(instructions_.size()) - std::get<0>(stack.top());
@@ -140,9 +154,8 @@ struct executable_t : public brainfk::executable_t {
 } // namespace
 
 brainfk::machine_t::executable_ptr_t
-brainfk::handrolled_machine_t::compile_impl(std::string_view program,
-                                            bool optimise) {
-  return std::make_unique<::executable_t>(program, optimise);
+brainfk::handrolled_machine_t::compile_impl(std::string_view program) {
+  return std::make_unique<::executable_t>(program);
 }
 
 void brainfk::handrolled_machine_t::execute_impl(
