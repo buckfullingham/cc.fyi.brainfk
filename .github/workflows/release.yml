@@ -1,0 +1,27 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'version'
+        required: true
+        type: string
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Tag and build release
+        id: build
+        run: >
+          BUILD_TYPE=Release
+          BUILD_PROFILE=linux
+          BUILD_VERSION="${{ inputs.version }}"
+          ci/container.sh /tmp/cc.fyi.brainfk/ci/release.sh
+      - name: push
+        uses: ad-m/github-push-action@master
+        with:
+          tags: true
