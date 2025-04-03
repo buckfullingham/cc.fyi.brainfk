@@ -36,7 +36,6 @@ jobs:
           prerelease: false
           release_name: ${{ inputs.version }}
           tag_name: ${{ inputs.version }}
-          body_path: CHANGELOG.md
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: upload linux artifact
