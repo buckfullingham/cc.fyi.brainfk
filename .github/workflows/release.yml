@@ -8,20 +8,44 @@ on:
         required: true
         type: string
 jobs:
+  name: release
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: checkout
+        id: checkout
+        uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Tag and build release
-        id: build
+      - name: tag and build
+        id: tag_and_build
         run: >
           BUILD_TYPE=Release
           BUILD_PROFILE=linux
           BUILD_VERSION="${{ inputs.version }}"
           ci/container.sh /tmp/cc.fyi.brainfk/ci/release.sh
       - name: push
+        id: push
         uses: ad-m/github-push-action@master
         with:
           tags: true
+      - name: create release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          draft: false
+          prerelease: false
+          release_name: ${{ inputs.version }}
+          tag_name: ${{ inputs.version }}
+          body_path: CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: upload linux artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: cmake-build-*/*.tar.gz
+          asset_name: cc.fyi.brainfk-${{ inputs.version }}.tar.gz
+          asset_content_type: application/gzip
