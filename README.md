@@ -2,7 +2,7 @@
 
 ![build status](https://github.com/buckfullingham/cc.fyi.brainfk/actions/workflows/build.yml/badge.svg)
 
-# Build Your Own Pong
+# Build Your Own Brainfuck Interpreter
 
 This is a solution to the problem posed at https://codingchallenges.fyi/challenges/challenge-brainfuck.
 
