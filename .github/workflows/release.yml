@@ -29,17 +29,17 @@ jobs:
         uses: ad-m/github-push-action@master
         with:
           tags: true
-      - name: create release
-        id: create_release
-        uses: actions/create-release@v1
-        with:
-          draft: false
-          prerelease: false
-          release_name: ${{ inputs.version }}
-          tag_name: ${{ inputs.version }}
-          body_path: CHANGELOG.md
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+#      - name: create release
+#        id: create_release
+#        uses: actions/create-release@v1
+#        with:
+#          draft: false
+#          prerelease: false
+#          release_name: ${{ inputs.version }}
+#          tag_name: ${{ inputs.version }}
+#          body_path: CHANGELOG.md
+#        env:
+#          GITHUB_TOKEN: ${{ github.token }}
 #      - name: upload linux artifact
 #        uses: actions/upload-release-asset@v1
 #        env:
