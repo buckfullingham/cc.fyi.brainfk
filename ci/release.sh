@@ -19,7 +19,7 @@ user_args=(
  -c safe.directory="${BUILD_ROOT}"
 )
 
-orig_branch="$(git branch --show-current)"
+orig_branch="$(git "${user_args[@]}" branch --show-current)"
 
 test -n "$orig_branch"
 
