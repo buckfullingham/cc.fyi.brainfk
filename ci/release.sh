@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -e
+set -x
 
 BUILD_TYPE="${BUILD_TYPE:-Release}"
 BUILD_PROFILE="${BUILD_PROFILE:-linux}"
