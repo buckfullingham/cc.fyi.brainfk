@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(brainfk LANGUAGES CXX)
+project(brainfk LANGUAGES CXX VERSION 0.0.7)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
