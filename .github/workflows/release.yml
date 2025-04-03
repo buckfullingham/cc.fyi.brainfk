@@ -8,8 +8,7 @@ on:
         required: true
         type: string
 jobs:
-  name: release
-  build:
+  release:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
