@@ -15,6 +15,7 @@ echo -n "$BUILD_VERSION" | grep "^[0-9]\{1,\}\.[0-9]\{1,\}\.[0-9]\{1,\}$"
 user_args=(
  -c user.name='Release Script'
  -c user.email=''
+ -c safe.directory="${BUILD_ROOT}"
 )
 
 orig_branch="$(git branch --show-current)"
