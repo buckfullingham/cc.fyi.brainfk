@@ -31,3 +31,7 @@ add_executable(ccbf
 target_link_libraries(ccbf PRIVATE
         brainfk-objects
 )
+
+install(TARGETS
+        ccbf
+)

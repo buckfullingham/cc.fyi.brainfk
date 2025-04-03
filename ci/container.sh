@@ -37,6 +37,7 @@ exec docker run \
   -e "BUILD_ROOT=${BUILD_ROOT_IN_CONTAINER}" \
   -e BUILD_TYPE \
   -e BUILD_PROFILE \
+  -e BUILD_VERSION \
   "${EXTRA_ARGS[@]}" \
   "$BUILD_IMAGE" \
   "$@"
