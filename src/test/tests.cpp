@@ -1,7 +1,6 @@
 #include <catch2/catch_all.hpp>
 #include <fakeit.hpp>
 
-#include "brainfk.hpp"
 #include "repl.hpp"
 #include "util.hpp"
 
@@ -183,11 +182,11 @@ TEST_CASE_METHOD(fixture_t, "repl executes a file provided on the command line",
   CHECK(history_.empty());
 }
 
-TEST_CASE("vm can execute the cc test script", "[brainfk][vm]") {
+TEST_CASE_METHOD(handrolled_fixture_t, "vm can execute the cc test script",
+                 "[brainfk][vm]") {
   std::string result;
 
-  brainfk::vm vm([]() -> std::uint8_t { std::abort(); },
-                 [&](std::uint8_t b) -> void { result.push_back(char(b)); });
+  brainfk::handrolled_machine_t vm;
 
   char script[] = R"xx(
     This is a test Brainf*ck script written
@@ -200,101 +199,56 @@ TEST_CASE("vm can execute the cc test script", "[brainfk][vm]") {
     ++++++++++++. What does it do?
   )xx";
 
-  vm.execute(script);
-  CHECK(result == "Hello, Coding Challenges");
-  result.clear();
-  vm.execute(script);
-  CHECK(result == "Hello, Coding Challenges");
+  exec(script);
+  CHECK(output_ == "Hello, Coding Challenges");
 }
 
-TEST_CASE("we can compile the cc test script", "[brainfk][vm][compile]") {
-  std::string result;
-
-  brainfk::vm vm([]() -> std::uint8_t { std::abort(); },
-                 [&](std::uint8_t b) -> void { result.push_back(char(b)); });
-
-  char script[] = R"xx(
-    This is a test Brainf*ck script written
-    for Coding Challenges!
-    ++++++++++[>+>+++>+++++++>++++++++++<<<
-    <-]>>>++.>+.+++++++..+++.<<++++++++++++
-    ++.------------.>-----.>.-----------.++
-    +++.+++++.-------.<<.>.>+.-------.+++++
-    ++++++..-------.+++++++++.-------.--.++
-    ++++++++++++. What does it do?
-  )xx";
-
-  auto program = brainfk::compile({script, sizeof(script) - 1});
-
-  vm.execute({program.begin(), program.size()});
-  CHECK(result == "Hello, Coding Challenges");
-  result.clear();
-  vm.execute({program.begin(), program.size()});
-  CHECK(result == "Hello, Coding Challenges");
+TEST_CASE_METHOD(handrolled_fixture_t, "exception on unmatched left bracket",
+                 "[brainfk][vm][compile]") {
+  CHECK_THROWS_AS(exec("["), std::runtime_error);
 }
 
-TEST_CASE("exception on unmatched left bracket", "[brainfk][vm][compile]") {
-  brainfk::vm vm([]() -> std::uint8_t { std::unreachable(); },
-                 [&](std::uint8_t) -> void { std::unreachable(); });
-
-  CHECK_THROWS_AS(brainfk::compile("["), std::runtime_error);
+TEST_CASE_METHOD(handrolled_fixture_t, "exception on unmatched right bracket",
+                 "[brainfk][vm][compile]") {
+  CHECK_THROWS_AS(exec("]"), std::runtime_error);
 }
 
-TEST_CASE("exception on unmatched right bracket", "[brainfk][vm][compile]") {
-  brainfk::vm vm([]() -> std::uint8_t { std::unreachable(); },
-                 [&](std::uint8_t) -> void { std::unreachable(); });
-
-  CHECK_THROWS_AS(brainfk::compile("]"), std::runtime_error);
-}
-
-TEST_CASE("input and output", "[brainfk][vm]") {
-  std::string input = "hello.";
+TEST_CASE_METHOD(handrolled_fixture_t, "input and output", "[brainfk][vm]") {
+  input_ = "hello.";
   std::string output;
-
-  brainfk::vm vm(
-      [it = input.begin()]() mutable -> std::uint8_t { return *it++; },
-      [&](std::uint8_t c) -> void { output.push_back(c); });
 
   // echo back every character in input until you reach a '.'
-  vm.execute("+[,.----------------------------------------------]");
+  exec("+[,.----------------------------------------------]");
 
-  CHECK(output == "hello.");
+  CHECK(output_ == "hello.");
 }
 
-TEST_CASE("zero compound instruction", "[brainfk][vm][compile]") {
-  std::string output;
-
-  brainfk::vm vm([]() -> std::uint8_t { std::unreachable(); },
-                 [&](std::uint8_t c) -> void { output.push_back(c); });
-
+TEST_CASE_METHOD(handrolled_fixture_t, "zero compound instruction",
+                 "[brainfk][vm][compile]") {
   // increment x4; set to 0; increment to 32 (' '); output
-  vm.execute("++++[-]++++++++++++++++++++++++++++++++.");
+  exec("++++[-]++++++++++++++++++++++++++++++++.");
 
-  CHECK(output == " ");
+  CHECK(output_ == " ");
 }
 
-TEST_CASE("multi zero compound instruction", "[brainfk][vm][compile]") {
-  brainfk::vm vm([]() -> std::uint8_t { std::unreachable(); },
-                 [&](std::uint8_t) -> void { std::unreachable(); });
-
-  vm.execute("+>++>+++");
-  CHECK(vm.memory()[0] == 1);
-  CHECK(vm.memory()[1] == 2);
-  CHECK(vm.memory()[2] == 3);
-  CHECK(vm.memory()[3] == 0);
-  vm.execute("+>++>+++<<[-]>[-]>[-]");
-  CHECK(vm.memory()[0] == 0);
-  CHECK(vm.memory()[1] == 0);
-  CHECK(vm.memory()[2] == 0);
-  CHECK(vm.memory()[3] == 0);
+TEST_CASE_METHOD(handrolled_fixture_t, "multi zero compound instruction",
+                 "[brainfk][vm][compile]") {
+  exec("+>++>+++");
+  CHECK(memory_[0] == std::byte(1));
+  CHECK(memory_[1] == std::byte(2));
+  CHECK(memory_[2] == std::byte(3));
+  CHECK(memory_[3] == std::byte(0));
+  exec("+>++>+++<<[-]>[-]>[-]");
+  CHECK(memory_[0] == std::byte(0));
+  CHECK(memory_[1] == std::byte(0));
+  CHECK(memory_[2] == std::byte(0));
+  CHECK(memory_[3] == std::byte(0));
 }
 
-TEST_CASE("zjmp instruction skips a block", "[brainfk][vm][compile]") {
-  brainfk::vm vm([]() -> std::uint8_t { std::unreachable(); },
-                 [&](std::uint8_t) -> void { std::unreachable(); });
-
-  vm.execute("[++>]+");
-  CHECK(vm.memory()[0] == 1);
+TEST_CASE_METHOD(handrolled_fixture_t, "zjmp instruction skips a block",
+                 "[brainfk][vm][compile]") {
+  exec("[++>]+");
+  CHECK(memory_[0] == std::byte(1));
 }
 
 TEST_CASE_METHOD(llvm_fixture_t, "llvm +") {

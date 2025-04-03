@@ -1,5 +1,4 @@
 #include "repl.hpp"
-#include "brainfk.hpp"
 #include "handrolled_machine.hpp"
 #include "llvm_machine.hpp"
 #include "readline.hpp"
@@ -8,6 +7,7 @@
 #include <cassert>
 #include <cstdio>
 #include <memory>
+#include <optional>
 #include <regex>
 #include <string_view>
 
